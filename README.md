@@ -5,5 +5,5 @@ Multimodal Medical Code Tokenizer
 Shared codebook for both two modalities.
 
 ## TODO
-Handle with missing modalities
+-- Handle with missing modalities
 
