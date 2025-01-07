@@ -6,6 +6,6 @@ Shared codebook for both two modalities.
 
 ## TODO
 - Handle with missing modalities with new loss
-- Residual quantization
+- RVQ to get concept-based tokens
 - Category
 - EHR-based model
