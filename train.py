@@ -25,9 +25,9 @@ from utils.ema import update_ema, requires_grad
 #from dataset.augmentation import random_crop_arr
 #from dataset.build import build_dataset
 from tokenizer import MultimodalTokenizer
-from loss import MultimodalTokenizerLoss
-from datasets.toy_dataset_creator import MedCodeDataset, custom_collate_fn
+from dataset.toy_dataset_creator import MedCodeDataset, custom_collate_fn
 from tqdm import tqdm
+from loss import shared_loss, specific_loss
 
 
 
@@ -217,11 +217,22 @@ def main(args):
             # generator training
             optimizer.zero_grad()
             with torch.cuda.amp.autocast(dtype=ptdtype):  
-                _, codebook_loss, _ = vq_model(inputs)
-                #loss = rec_loss + codebook_loss[0] + codebook_loss[1] + codebook_loss[2] + codebook_loss[3]
-                loss = codebook_loss[0] + codebook_loss[1] + codebook_loss[2] + codebook_loss[3]
+                quantized_result = vq_model(inputs)
+                #loss = codebook_loss[0] + codebook_loss[1] + codebook_loss[2] + codebook_loss[3]
+                codebook_loss = (quantized_result['shared_embed_loss'][0] + quantized_result['shared_embed_loss'][1] +
+                                 quantized_result['text_specific_loss'][0] + quantized_result['text_specific_loss'][1] + 
+                                 quantized_result['graph_specific_loss'][0]+quantized_result['graph_specific_loss'][1])
                 
-            scaler.scale(loss).backward()
+                shared_loss_all = shared_loss(quantized_result['shared_text_embedding'], quantized_result['shared_graph_embedding'], quantized_result['text_feature'], quantized_result['graph_feature'])
+                specific_loss_all = specific_loss(z1 = quantized_result['specific_embedding_text'],
+                                              z1_aug = quantized_result['specific_embedding_text_aug'],
+                                              z2 = quantized_result['specific_embedding_graph'],
+                                              z2_aug = quantized_result['specific_embedding_graph_aug'],
+                                              z1_c = quantized_result['shared_text_embedding'],
+                                              z2_c = quantized_result['shared_graph_embedding'])
+                loss_common = codebook_loss + shared_loss_all + specific_loss_all
+        
+            scaler.scale(loss_common).backward()
 
             if args.max_grad_norm != 0.0:
                 scaler.unscale_(optimizer)
@@ -229,11 +240,25 @@ def main(args):
             
             scaler.step(optimizer)
             scaler.update()
-            if args.ema:
-                update_ema(ema, vq_model.module._orig_mod if args.compile else vq_model.module)
             
+            '''with torch.cuda.amp.autocast(dtype=ptdtype):
+                quantized_result_star = vq_model(inputs)
+
+                specific_loss_all = specific_loss(z1 = quantized_result['specific_embedding_text'],
+                                              z1_aug = quantized_result_star['specific_embedding_text_aug'],
+                                              z2 = quantized_result['specific_embedding_graph'],
+                                              z2_aug = quantized_result_star['specific_embedding_graph_aug'],
+                                              z1_c = quantized_result['shared_text_embedding'],
+                                              z2_c = quantized_result['shared_graph_embedding'])
+                loss_specific = specific_loss_all   
+            optimizer.zero_grad()
+            scaler.scale(loss_specific).backward()
+            scaler.step(optimizer)
+            scaler.update()'''
+
             # # Log loss values:
-            running_loss += loss.item()
+            loss = loss_common.item() #+ loss_specific.item()
+            running_loss += loss
             
             log_steps += 1
             train_steps += 1
@@ -252,17 +277,20 @@ def main(args):
                 #print(codebook_loss)
                 loss_dict = {
                     #'rec_loss': rec_loss,
-                    'loss': loss.item(),
-                    'vq_loss': codebook_loss[0].item(),
-                    'commit_loss': codebook_loss[1].item(),
-                    'entropy_loss': codebook_loss[2].item(),
-                    'codebook_usage': codebook_loss[3],
-                    'd_text': codebook_loss[4].item(),
-                    'd_graph': codebook_loss[5].item(),
+                    'loss': loss,
+                    'loss_common': shared_loss_all.item(),
+                    'loss_specific': specific_loss_all.item(),
+                    'vq_loss': codebook_loss.item(),
+                    #'commit_loss': codebook_loss[1].item(),
+                    #'entropy_loss': codebook_loss[2].item(),
+                    'codebook_usage_shared': quantized_result['shared_codebook_usage'],
+                    'codebook_usage_text': quantized_result['text_specific_usage'],
+                    'codebook_usage_graph': quantized_result['graph_specific_usage'],
+                    #'d_text': codebook_loss[4].item(),
+                    #'d_graph': codebook_loss[5].item(),
                 } 
                 
                 if rank == 0:
-                    #wandb.log({**codebook_loss}, step=train_steps)
                     wandb.log({**loss_dict}, step=train_steps)
 
                 # Reset monitoring variables:
@@ -289,6 +317,16 @@ def main(args):
                         checkpoint_path = f"{checkpoint_dir}/{train_steps:07d}.pt"
                         torch.save(checkpoint, checkpoint_path)
                         logger.info(f"Saved checkpoint to {checkpoint_path}")
+                    
+                        # Get a list of all checkpoints in the directory
+                        checkpoint_files = glob(os.path.join(checkpoint_dir, "*.pt"))
+                        checkpoint_files.sort(key=os.path.getmtime)  # Sort by modification time
+
+                        # Remove old checkpoints if there are more than max_checkpoints
+                        while len(checkpoint_files) > args.max_checkpoints:
+                            oldest_checkpoint = checkpoint_files.pop(0)  # Get the oldest checkpoint
+                            os.remove(oldest_checkpoint)
+                            print(f"Deleted old checkpoint: {oldest_checkpoint}")
                     
                     cloud_checkpoint_path = f"{cloud_checkpoint_dir}/{train_steps:07d}.pt"
                     torch.save(checkpoint, cloud_checkpoint_path)
@@ -326,7 +364,7 @@ if __name__ == "__main__":
     parser.add_argument("--graph_hidden_channels", type=int, default=128, help="hidden channels for graph encoder") 
     parser.add_argument("--graph_out_channels", type=int, default=64, help="output channels for graph encoder")
 
-    parser.add_argument("--codebook-size", type=int, default=130000, help="codebook size for vector quantization")
+    parser.add_argument("--codebook-size", type=int, default=150000, help="codebook size for vector quantization")
     parser.add_argument("--codebook-embed-dim", type=int, default=64, help="codebook dimension for graph quantization")
     parser.add_argument("--semantic-code-dim", type=int, default=64, help="codebook dimension for semantic quantization")
     parser.add_argument("--text-code-dim", type=int, default=64, help="codebook dimension for semantic quantization")
@@ -341,18 +379,19 @@ if __name__ == "__main__":
     parser.add_argument("--dropout-p", type=float, default=0.0, help="dropout_p")
     parser.add_argument("--results-dir", type=str, default="results_tokenizer_image")
     parser.add_argument("--dataset", type=str, default='imagenet')
-    parser.add_argument("--epochs", type=int, default=100)
+    parser.add_argument("--epochs", type=int, default=10)
     parser.add_argument("--lr", type=float, default=1e-4)
     parser.add_argument("--weight-decay", type=float, default=5e-2, help="Weight decay to use.")
     parser.add_argument("--beta1", type=float, default=0.9, help="The beta1 parameter for the Adam optimizer.")
     parser.add_argument("--beta2", type=float, default=0.95, help="The beta2 parameter for the Adam optimizer.")
     parser.add_argument("--max-grad-norm", default=1.0, type=float, help="Max gradient norm.")
-    parser.add_argument("--global-batch-size", type=int, default=512) 
+    parser.add_argument("--global-batch-size", type=int, default=1024) 
     parser.add_argument("--global-seed", type=int, default=0)
-    parser.add_argument("--num-workers", type=int, default=4)
+    parser.add_argument("--num-workers", type=int, default=8)
     parser.add_argument("--log-every", type=int, default=100)
-    parser.add_argument("--ckpt-every", type=int, default=5000)
+    parser.add_argument("--ckpt-every", type=int, default=500)
     parser.add_argument("--gradient-accumulation-steps", type=int, default=1)
+    parser.add_argument("--max-checkpoints", type=int, default=2)
     parser.add_argument("--mixed-precision", type=str, default='fp16', choices=["none", "fp16", "bf16"]) # better change to bf16 if GPU support
 
     parser.add_argument("--infer_interpolate", action='store_true', help="interpolate the positional encoding for higher resolution inference")

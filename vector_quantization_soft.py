@@ -14,7 +14,7 @@ from transformers.modeling_utils import get_parameter_device, get_parameter_dtyp
 from norm_ema_quantizer import EmbeddingEMA, l2norm, norm_ema_inplace
 import torch.distributed as dist
 from graphdecoder import SpectralGraphDecoder
-
+##soft means that the embedding are decided by top 10 closest embeddings, not the minimum one
 class VectorQuantizer(nn.Module):
     def __init__(self, n_e, e_dim, beta, entropy_loss_ratio, l2_norm, show_usage, split, kmeans=False):
         super().__init__()
@@ -90,12 +90,17 @@ class VectorQuantizer(nn.Module):
         ### shared mapping ###
         d = d_text + 1.0 * d_graph  ##size [bz, codebook_size]
         
-        min_encoding_indices = torch.argmin(d, dim=1)  ##find the index of the closest embedding for each token
+        values, min_encoding_indices = torch.topk(d, k=10, largest=False)
+        #min_encoding_indices = torch.argmin(d, dim=1)  ##find the index of the closest embedding for each token
+        weights = torch.softmax(-values, dim=1)  # 计算权重
 
         ##get corresponding quantized embeddings
-        z_q = shared_embedding[min_encoding_indices].view(z.shape)
-        z_q_text = shared_embedding_text_norm[min_encoding_indices].view(z_flattened_text_norm.shape)
-        z_q_graph = shared_embedding_graph_norm[min_encoding_indices].view(z_flattened_graph_norm.shape)
+        #z_q = shared_embedding[min_encoding_indices].view(z.shape)
+        #z_q_text = shared_embedding_text_norm[min_encoding_indices].view(z_flattened_text_norm.shape)
+        #z_q_graph = shared_embedding_graph_norm[min_encoding_indices].view(z_flattened_graph_norm.shape)
+        z_q = (weights.unsqueeze(-1) * shared_embedding[min_encoding_indices]).sum(dim=1).view(z.shape)
+        z_q_text = (weights.unsqueeze(-1) * shared_embedding_text_norm[min_encoding_indices]).sum(dim=1).view(z_flattened_text_norm.shape)
+        z_q_graph = (weights.unsqueeze(-1) * shared_embedding_graph_norm[min_encoding_indices]).sum(dim=1).view(z_flattened_graph_norm.shape)
 
         # compute loss for embedding
         if self.training:
@@ -118,9 +123,10 @@ class VectorQuantizer(nn.Module):
                 embedding_norm = F.normalize(self.embedding_graph.weight, p=2, dim=-1)
         
         d_specific = self.get_distance(original_embedding_norm, embedding_norm)
-        min_encoding_indices = torch.argmin(d_specific, dim=1)  ##find the index of the closest embedding for each token
-        z_q = embedding_norm[min_encoding_indices].view(original_embedding.shape)
-        
+        values, min_encoding_indices = torch.topk(d_specific, k=10, largest=False)  ##find the index of the closest embedding for each token
+        weights = torch.softmax(-values, dim=1)  # 计算权重
+        z_q = (weights.unsqueeze(-1) * embedding_norm[min_encoding_indices]).sum(dim=1).view(original_embedding.shape)
+
         if self.training:
             vq_loss = torch.mean((z_q - original_embedding.detach()) ** 2)
             commit_loss = self.beta * torch.mean((z_q.detach() - original_embedding) ** 2)
@@ -132,6 +138,7 @@ class VectorQuantizer(nn.Module):
 
     def codebook_usage(self, min_encoding_indices, types='shared'):
         
+        min_encoding_indices = min_encoding_indices.view(-1)
         cur_len = min_encoding_indices.shape[0]
         if types == 'shared':
             self.shared_codebook_used[:-cur_len] = self.shared_codebook_used[cur_len:].clone()
@@ -195,5 +202,4 @@ def compute_entropy_loss(affinity, loss_type="softmax", temperature=0.01):
     avg_entropy = - torch.sum(avg_probs * torch.log(avg_probs + 1e-5))
     sample_entropy = - torch.mean(torch.sum(target_probs * log_probs, dim=-1))
     loss = sample_entropy - avg_entropy
-    
     return loss
