@@ -49,7 +49,7 @@ def main(args):
     seed = args.global_seed * dist.get_world_size() + rank
     torch.manual_seed(seed)
     torch.cuda.set_device(device)
-
+    
     # Setup an experiment folder:
     if rank == 0:
         os.makedirs(args.results_dir, exist_ok=True)  # Make results folder (holds all experiment subfolders)
@@ -58,6 +58,8 @@ def main(args):
         experiment_dir = f"{args.results_dir}/{experiment_index:03d}-{model_string_name}"  # Create an experiment folder
         checkpoint_dir = f"{experiment_dir}/checkpoints"  # Stores saved model checkpoints
         os.makedirs(checkpoint_dir, exist_ok=True)
+        import json
+        json.dump(vars(args), open(f"{experiment_dir}/args.json", "w"), indent=4)  # Save args to experiment folder
         logger = create_logger(experiment_dir)
         logger.info(f"Experiment directory created at {experiment_dir}")
 
@@ -207,7 +209,7 @@ def main(args):
     # Initialize wandb
     if rank == 0:
         import wandb
-        wandb.init(project="MultimodalTokenizer", config=args)
+        wandb.init(project="MultimodalTokenizer", config=args, name=f"{time_record}-{model_string_name}")
     for epoch in range(start_epoch, args.epochs):
         sampler.set_epoch(epoch)
         logger.info(f"Beginning epoch {epoch}...")
@@ -223,14 +225,20 @@ def main(args):
                                  quantized_result['text_specific_loss'][0] + quantized_result['text_specific_loss'][1] + 
                                  quantized_result['graph_specific_loss'][0]+quantized_result['graph_specific_loss'][1])
                 
-                shared_loss_all = shared_loss(quantized_result['shared_text_embedding'], quantized_result['shared_graph_embedding'], quantized_result['text_feature'], quantized_result['graph_feature'])
-                specific_loss_all = specific_loss(z1 = quantized_result['specific_embedding_text'],
+                shared_loss_11, shared_loss_12, shared_loss_21, shared_loss_22 = shared_loss(quantized_result['shared_text_embedding'], quantized_result['shared_graph_embedding'], quantized_result['text_feature'], quantized_result['graph_feature'])
+                shared_loss_all = shared_loss_11 + shared_loss_12 + shared_loss_21 + shared_loss_22
+
+                specific_loss_11, specific_loss_12, specific_loss_21, specific_loss_22 = specific_loss(z1 = quantized_result['specific_embedding_text'],
                                               z1_aug = quantized_result['specific_embedding_text_aug'],
                                               z2 = quantized_result['specific_embedding_graph'],
                                               z2_aug = quantized_result['specific_embedding_graph_aug'],
                                               z1_c = quantized_result['shared_text_embedding'],
                                               z2_c = quantized_result['shared_graph_embedding'])
-                loss_common = codebook_loss + shared_loss_all + specific_loss_all
+                specific_loss_all = specific_loss_11 + specific_loss_12 + specific_loss_21 + specific_loss_22
+                
+                beta = args.commit-loss-beta
+                lamb = args.specific-loss-lamb
+                loss_common = codebook_loss + beta * shared_loss_all + lamb * specific_loss_all
         
             scaler.scale(loss_common).backward()
 
@@ -276,18 +284,27 @@ def main(args):
                 #codebook_loss = codebook_loss.item()
                 #print(codebook_loss)
                 loss_dict = {
-                    #'rec_loss': rec_loss,
                     'loss': loss,
-                    'loss_common': shared_loss_all.item(),
-                    'loss_specific': specific_loss_all.item(),
+                    'loss_common_all': shared_loss_all.item(),
+                    'loss_common_11': shared_loss_11.item(),
+                    'loss_common_12': shared_loss_12.item(),
+                    'loss_common_21': shared_loss_21.item(),
+                    'loss_common_22': shared_loss_22.item(),
+                    'loss_specific_all': specific_loss_all.item(),
+                    'loss_specific_11': specific_loss_11.item(),
+                    'loss_specific_12': specific_loss_12.item(),
+                    'loss_specific_21': specific_loss_21.item(),
+                    'loss_specific_22': specific_loss_22.item(),
                     'vq_loss': codebook_loss.item(),
-                    #'commit_loss': codebook_loss[1].item(),
-                    #'entropy_loss': codebook_loss[2].item(),
+                    'vq_shared_loss': quantized_result['shared_embed_loss'][0].item(),
+                    'vq_text_loss': quantized_result['text_specific_loss'][0].item(),
+                    'vq_graph_loss': quantized_result['graph_specific_loss'][0].item(),
+                    'commit_shared_loss': quantized_result['shared_embed_loss'][1].item(),
+                    'commit_text_loss': quantized_result['text_specific_loss'][1].item(),
+                    'commit_graph_loss': quantized_result['graph_specific_loss'][1].item(),
                     'codebook_usage_shared': quantized_result['shared_codebook_usage'],
                     'codebook_usage_text': quantized_result['text_specific_usage'],
                     'codebook_usage_graph': quantized_result['graph_specific_usage'],
-                    #'d_text': codebook_loss[4].item(),
-                    #'d_graph': codebook_loss[5].item(),
                 } 
                 
                 if rank == 0:
@@ -314,12 +331,12 @@ def main(args):
                     if args.ema:
                         checkpoint["ema"] = ema.state_dict()
                     if not args.no_local_save:
-                        checkpoint_path = f"{checkpoint_dir}/{train_steps:07d}.pt"
+                        checkpoint_path = f"{time_record}-{checkpoint_dir}/{train_steps:07d}.pt"
                         torch.save(checkpoint, checkpoint_path)
                         logger.info(f"Saved checkpoint to {checkpoint_path}")
                     
                         # Get a list of all checkpoints in the directory
-                        checkpoint_files = glob(os.path.join(checkpoint_dir, "*.pt"))
+                        checkpoint_files = glob(os.path.join(formatted_time + "-" + checkpoint_dir, "*.pt"))
                         checkpoint_files.sort(key=os.path.getmtime)  # Sort by modification time
 
                         # Remove old checkpoints if there are more than max_checkpoints
@@ -347,7 +364,7 @@ if __name__ == "__main__":
     parser.add_argument("--data-path", type=str, default='datasets/')
 
     parser.add_argument("--kg-path", type=str, default='/n/netscratch/mzitnik_lab/Lab/xsu/primeKG/', help="path to the knowledge graph")
-    parser.add_argument("--med-codes-pkg-map-path", type=str, default='/n/netscratch/mzitnik_lab/Lab/xsu/all_codes_mapping_v2_w_og_mappings.parquet', help="path to the med codes package map")
+    parser.add_argument("--med-codes-pkg-map-path", type=str, default='/n/holylfs06/LABS/mzitnik_lab/Lab/shvat372/icml_paper/ICML_codes/graphs/all_codes_mappings_v3.parquet', help="path to the med codes package map")
     parser.add_argument("--graph-save-path", type=str, default='/n/netscratch/mzitnik_lab/Lab/xsu/kg_temp_2912', help="path to save the graph")
     
     parser.add_argument("--data-face-path", type=str, default=None, help="face datasets to improve vq model")
@@ -364,7 +381,7 @@ if __name__ == "__main__":
     parser.add_argument("--graph_hidden_channels", type=int, default=128, help="hidden channels for graph encoder") 
     parser.add_argument("--graph_out_channels", type=int, default=64, help="output channels for graph encoder")
 
-    parser.add_argument("--codebook-size", type=int, default=150000, help="codebook size for vector quantization")
+    parser.add_argument("--codebook-size", type=int, default=30000, help="codebook size for vector quantization")
     parser.add_argument("--codebook-embed-dim", type=int, default=64, help="codebook dimension for graph quantization")
     parser.add_argument("--semantic-code-dim", type=int, default=64, help="codebook dimension for semantic quantization")
     parser.add_argument("--text-code-dim", type=int, default=64, help="codebook dimension for semantic quantization")
@@ -372,14 +389,14 @@ if __name__ == "__main__":
     parser.add_argument("--codebook-weight", type=float, default=1.0, help="codebook loss weight for vector quantization")
     parser.add_argument("--entropy-loss-ratio", type=float, default=0.0, help="entropy loss ratio in codebook loss")
     parser.add_argument("--commit-loss-beta", type=float, default=0.25, help="commit loss beta in codebook loss")
-    parser.add_argument("--reconstruction-weight", type=float, default=1.0, help="reconstruction loss weight of image pixel")
-    parser.add_argument("--reconstruction-loss", type=str, default='l2', help="reconstruction loss type of image pixel")
+    parser.add_argument("--shared-loss-beta", type=float, default=0.5, help="shared loss beta in codebook loss")
+    parser.add_argument("--specific-loss-lamb", type=float, default=0.5, help="specific loss lambda in codebook loss")
 
     parser.add_argument("--compile", action='store_true', default=False)
-    parser.add_argument("--dropout-p", type=float, default=0.0, help="dropout_p")
-    parser.add_argument("--results-dir", type=str, default="results_tokenizer_image")
+    parser.add_argument("--dropout-p", type=float, default=0.2, help="dropout_p")
+    parser.add_argument("--results-dir", type=str, default="/n/netscratch/mzitnik_lab/Lab/xsu/MultimodalTokenizer/pre_trained_model")
     parser.add_argument("--dataset", type=str, default='imagenet')
-    parser.add_argument("--epochs", type=int, default=10)
+    parser.add_argument("--epochs", type=int, default=6)
     parser.add_argument("--lr", type=float, default=1e-4)
     parser.add_argument("--weight-decay", type=float, default=5e-2, help="Weight decay to use.")
     parser.add_argument("--beta1", type=float, default=0.9, help="The beta1 parameter for the Adam optimizer.")
@@ -388,7 +405,7 @@ if __name__ == "__main__":
     parser.add_argument("--global-batch-size", type=int, default=1024) 
     parser.add_argument("--global-seed", type=int, default=0)
     parser.add_argument("--num-workers", type=int, default=8)
-    parser.add_argument("--log-every", type=int, default=100)
+    parser.add_argument("--log-every", type=int, default=1)
     parser.add_argument("--ckpt-every", type=int, default=500)
     parser.add_argument("--gradient-accumulation-steps", type=int, default=1)
     parser.add_argument("--max-checkpoints", type=int, default=2)
