@@ -193,7 +193,7 @@ class VectorQuantizer(nn.Module):
             original_embedding = self.proj_graph(original_embedding)
 
         if self.l2_norm:
-            region = self.codebook.shape[0] // 3
+            region = self.codebook.weight.shape[0] // 3
             original_embedding_norm = F.normalize(original_embedding, p=2, dim=-1)
             if types == 'text':
                 embedding_norm = F.normalize(self.codebook.weight[:region], p=2, dim=-1)
