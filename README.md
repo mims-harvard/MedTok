@@ -1,4 +1,4 @@
-# MedicalCode
+# MedTok
 Multimodal Medical Code Tokenizer
 
 ## Version 1
