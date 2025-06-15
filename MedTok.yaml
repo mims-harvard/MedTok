@@ -241,4 +241,4 @@ dependencies:
     - xxhash==3.5.0
     - yacs==0.1.8
     - zipp==3.20.2
-prefix: /n/home12/xsu/.conda/envs/plm
+prefix: /n/home12/xsu/.conda/envs/medtok
