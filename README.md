@@ -68,3 +68,7 @@ python map_query_id.py
 ```
 </details>
 
+## Contact
+
+If you have any questions or suggestions, please email Xiaorui Su[xiaorui_su@hms.harvard.edu] and Marinka Zitnik.
+
