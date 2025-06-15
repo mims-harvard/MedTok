@@ -4,17 +4,10 @@ import torch.nn.functional as F
 
 class SpectralGraphDecoder(nn.Module):
     def __init__(self, graph_dim, num_nodes, rank):
-        """
-        Args:
-            graph_dim: 图级表示的维度 (d_q)
-            num_nodes: 图中节点数量 (N)
-            rank: 保留的谱特征数量 (d)
-        """
         super(SpectralGraphDecoder, self).__init__()
         self.num_nodes = num_nodes
         self.rank = rank
 
-        # 解码谱特征
         self.fc_eigenvectors = nn.Linear(graph_dim, num_nodes * rank)  # 解码特征向量
         self.fc_eigenvalues = nn.Linear(graph_dim, rank)  # 解码特征值
 
