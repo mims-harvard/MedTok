@@ -2,12 +2,9 @@ import torch
 from torch_geometric.nn import GCNConv, GATConv, global_mean_pool
 from dgl.nn import GraphConv, GATConv
 import os
-os.environ['HF_HOME'] = '/n/netscratch/mzitnik_lab/Lab/xsu/xiaorui/cache/'
 from transformers import AutoTokenizer, AutoModel
 import torch.nn as nn
 from timm.models.layers import trunc_normal_
-#from vector_quantization import VectorQuantizer
-#from vector_quantization_soft import VectorQuantizer
 from vector_quantization_soft_one import VectorQuantizer
 import random
 import dgl
