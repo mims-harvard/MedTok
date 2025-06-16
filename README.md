@@ -40,9 +40,9 @@ python inference.py
 The tokenizer is also available on [HuggingFace](add links).
 
 ### MedTok for EHR-based Tasks
-We show an example on how to integrate our MedTok with a simple transformer-based model on MIMIC III, MIMIC IV, and EHRShot datasets. Please get access to these EHR datasets first, and then run 
+We show an example on how to integrate our MedTok with a simple transformer-based model on MIMIC III, MIMIC IV, and EHRShot datasets. Please get access to these EHR datasets first, and then run: 
 ```bash
-python transformer_EHR.py
+python EHR_model_token.py
 ```
 
 ### ❓MedTok for MedicalQA Task
