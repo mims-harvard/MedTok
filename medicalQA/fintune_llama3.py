@@ -1,7 +1,6 @@
 import os
 import sys
 from typing import List
-os.environ['HF_HOME'] = '/n/netscratch/mzitnik_lab/Lab/xsu/xiaorui/cache/'
 import fire
 import torch
 import wandb
@@ -13,7 +12,6 @@ from review import Review
 import re
 import json
 from huggingface_hub import login
-login("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")
 torch.cuda.empty_cache()
 """
 Unused imports:
@@ -66,7 +64,7 @@ def train(
     ],
     num_prefix: int = 1,
     # llm hyperparams
-    train_on_inputs: bool = True,  # if False, masks out inputs in loss
+    train_on_inputs: bool = False,  # if False, masks out inputs in loss
     add_eos_token: bool = False,
     group_by_length: bool = False,  # faster, but produces an odd training loss curve
     # wandb params
