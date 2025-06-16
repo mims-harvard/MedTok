@@ -96,7 +96,7 @@ def main(args):
         requires_grad(ema, False)
         logger.info(f"Model EMA Parameters: {sum(p.numel() for p in ema.parameters()):,}")
     
-    vq_model.load_state_dict(torch.load("results_tokenizer_image/003-GCN_bert-base-uncased/checkpoints/0000500.pt")['model'])
+    vq_model.load_state_dict(torch.load("checkpoints/0000500.pt")['model'])
     vq_model.to(device)
     vq_model.eval()
 
@@ -224,12 +224,12 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--data-path", type=str, default='datasets/')
 
-    parser.add_argument("--kg-path", type=str, default='/n/netscratch/mzitnik_lab/Lab/xsu/primeKG/', help="path to the knowledge graph")
-    parser.add_argument("--med-codes-pkg-map-path", type=str, default='/n/netscratch/mzitnik_lab/Lab/xsu/all_codes_mapping_v2_w_og_mappings.parquet', help="path to the med codes package map")
-    parser.add_argument("--graph-save-path", type=str, default='/n/netscratch/mzitnik_lab/Lab/xsu/kg_temp_2912', help="path to save the graph")
+    parser.add_argument("--kg-path", type=str, default='datasets/primeKG/', help="path to the knowledge graph")
+    parser.add_argument("--med-codes-pkg-map-path", type=str, default='datasets/code/all_codes_mapping_v2_w_og_mappings.parquet', help="path to the med codes package map")
+    parser.add_argument("--graph-save-path", type=str, default='MedTok/graph/', help="path to save the graph")
     
     parser.add_argument("--data-face-path", type=str, default=None, help="face datasets to improve vq model")
-    parser.add_argument("--cloud-save-path", type=str, default='/n/netscratch/mzitnik_lab/Lab/xsu/MultimodalTokenizer/log/', help='please specify a cloud disk path, if not, local path')
+    parser.add_argument("--cloud-save-path", type=str, default='MedTok/log/', help='please specify a cloud disk path, if not, local path')
     parser.add_argument("--no-local-save", action='store_true', help='no save checkpoints to local path for limited disk volume')
     parser.add_argument("--model", type=str, default="MultimodalTokenizer")
     parser.add_argument("--graph_model_name", type=str, choices=["GCN", "GAT", "GraphTransformer"], default="GCN")
@@ -242,7 +242,7 @@ if __name__ == "__main__":
     parser.add_argument("--graph_hidden_channels", type=int, default=128, help="hidden channels for graph encoder") 
     parser.add_argument("--graph_out_channels", type=int, default=64, help="output channels for graph encoder")
 
-    parser.add_argument("--codebook-size", type=int, default=200000, help="codebook size for vector quantization")
+    parser.add_argument("--codebook-size", type=int, default=21000, help="codebook size for vector quantization")
     parser.add_argument("--codebook-embed-dim", type=int, default=64, help="codebook dimension for graph quantization")
     parser.add_argument("--semantic-code-dim", type=int, default=64, help="codebook dimension for semantic quantization")
     parser.add_argument("--text-code-dim", type=int, default=64, help="codebook dimension for semantic quantization")
