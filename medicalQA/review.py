@@ -6,8 +6,6 @@ from transformers import LlamaForCausalLM
 import numpy as np
 import torch.nn.functional as F
 
-#pretrained_emb_path = '/n/holylfs06/LABS/mzitnik_lab/Lab/shgao/timetok/TOTEM/forecasting/forecasting_tokenizer_embeddings/MCQ_1_TS/train/padded_x_codes_all.npy'
-#pretrained_emb_mask_path = '/n/holylfs06/LABS/mzitnik_lab/Lab/shgao/timetok/TOTEM/forecasting/forecasting_tokenizer_embeddings/MCQ_1_TS/train/padded_masks.npy'
 class Review(nn.Module):
     def __init__(
         self,
