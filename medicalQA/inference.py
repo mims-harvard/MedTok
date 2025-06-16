@@ -89,7 +89,7 @@ if __name__ == "__main__":
     lora_weights = "r8_alpha_16_bz_256_epoch_1_llama3.1_lr_0.00001_review_ratio_0.8/"
     test_data_path = "mmlu_dataset.json"
     #embedding_path = "primekg/embeddings.pth"
-    pretrain_emb_path: str = '/n/netscratch/mzitnik_lab/Lab/xsu/MultimodalTokenizer/rebuttal/2025-03-26-19-13-08-000-GCN_bert-base-uncased/embeddings_all_3000.npy'
+    pretrain_emb_path: str = 'MedTok/embeddings_all_3000.npy'
     embeddings = np.load(pretrain_emb_path)
     miss_emb = torch.nn.Parameter(torch.randn(100, embeddings.shape[-1]), requires_grad=False)
     embeddings = np.concatenate((embeddings, miss_emb), axis=0)
