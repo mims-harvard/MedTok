@@ -37,7 +37,14 @@ MedTok is a medical code tokenizer. When you are trying to use MedTok to tokeniz
 ```bash
 python inference.py
 ```
-The tokenizer is also available on [HuggingFace](add links).
+By running this python file, you could get all tokens and embeddings generated for all medical codes considered in this paper.
+
+You could also use [HuggingFace](add links) to access MedTok. Here is the example:
+```bash
+from transformers import AutoModel
+```
+
+
 
 ### 🏥MedTok for EHR-based Tasks
 We show an example on how to integrate our MedTok with a simple transformer-based model on MIMIC III, MIMIC IV, and EHRShot datasets. Please get access to these EHR datasets first, and then run: 
