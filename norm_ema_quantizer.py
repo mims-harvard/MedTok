@@ -1,13 +1,3 @@
-# --------------------------------------------------------
-# BEiT v2: Masked Image Modeling with Vector-Quantized Visual Tokenizers (https://arxiv.org/abs/2208.06366)
-# Github source: https://github.com/microsoft/unilm/tree/master/beitv2
-# Copyright (c) 2022 Microsoft
-# Licensed under The MIT License [see LICENSE for details]
-# By Zhiliang Peng
-# Based on VQGAN code bases
-# https://github.com/CompVis/taming-transformers
-# --------------------------------------------------------'
-
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
