@@ -42,8 +42,8 @@ import os
 from torch.nn.utils.rnn import pad_sequence
 import wandb
 
-root = "/n/netscratch/mzitnik_lab/Lab/xsu/xiaorui"
-#root="dataset"
+root = "./"  ##the root directory to save the processed EHR data and access the EHR data
+med_codes_pkg_map_path = '../medicalCode/all_codes_mappings_v3.parquet'
 
 ##read patient EHR data for MIMIC III or MIMIC IV and then obtain the corresponding format for each of tasks, and then generate patient-specific graph for each patient for each visit
 class PatientEHR(object):
@@ -57,7 +57,6 @@ class PatientEHR(object):
         self.task = task
         self.is_remove = remove_outliers
 
-        med_codes_pkg_map_path = '/n/holylfs06/LABS/mzitnik_lab/Lab/shvat372/icml_paper/ICML_codes/graphs/all_codes_mappings_v3.parquet'
         self.medical_code = pd.read_parquet(med_codes_pkg_map_path)
         self.medical_code['med_code'] = self.medical_code['med_code'].apply(lambda x: x.replace('.', ''))
         #print(self.medical_code.head())
@@ -109,9 +108,8 @@ class PatientEHR(object):
             )
         elif self.dataset == 'EHRShot':
             print("dataset", self.dataset)
-            root_ehrshot = '/n/holylfs06/LABS/mzitnik_lab/Lab/shvat372/icml_paper/EHR_SHOT_PROCESSED'
             database = EHRShotDataset(
-                root = os.path.join(root_ehrshot, "test"),
+                root = os.path.join(root, "EHRShot"),
                 tables=["diagnoses", "procedures", "prescriptions"],
                 dev=False,
                 code_mapping={
@@ -119,18 +117,13 @@ class PatientEHR(object):
                     },
                 refresh_cache=True
             )
-            '''with open('/n/netscratch/mzitnik_lab/Lab/xsu/xiaorui/EHRShot_p_info.pkl', 'rb') as f:
-                patient_person_info = pickle.load(f)
-            with open('/n/netscratch/mzitnik_lab/Lab/xsu/xiaorui/EHRShot_result.pkl', 'rb') as f:
-                medical_code = pickle.load(f)
-            database = [patient_person_info, medical_code]'''
     
         return database
     
     def process_structure_EHR_for_patient(self):
         ##process the structure EHR data for each patient
         samples = []
-        #print(self.database.patients)
+
         #disease_candidate = ['E785', '2724', 'E780', 'E781', 'E782', 'E7800', 'E7801', 'E7841', 'E7849', 'E785', 'E786', 'E7870', 'E7871', 'E7872', 'E7879', 'E7881','E7889', 'E789']
         #disease_candidate = ['C250', 'C251', 'C252', 'C253', 'C254', 'C257', 'C259', '1579', '1570', '1571', '1572', '1573', '1574', '1578']
         #disease_candidte = []
@@ -139,7 +132,6 @@ class PatientEHR(object):
         disease_candidate_index = []
         for d in disease_candidate:
             mapped_indicies = self.medical_code.index[self.medical_code['med_code'] == d].tolist()
-            print(mapped_indicies)
             if len(mapped_indicies) > 0:
                 disease_candidate_index.extend(mapped_indicies)
             else:
@@ -149,8 +141,6 @@ class PatientEHR(object):
                         disease_candidate_index.append(ValueError)
                         continue
                     
-        #disease_candidate_index = [self.medical_code.index[self.medical_code['med_code'] == d].tolist()[0] for d in disease_candidate]
-        print(disease_candidate_index)
 
         print("processing EHR data")
         for _, patient in tqdm(self.database.patients.items(), desc = "Processing EHR data"):
@@ -167,7 +157,7 @@ class PatientEHR(object):
                 if sample is not None:
                     samples.append(sample)
             elif self.task == 'phenotype':
-                self.phenotype_index = pd.read_pickle('EHRDataset/phenotype_index.pkl')
+                self.phenotype_index = pd.read_pickle('phenotype_index.pkl')
                 sample = self.phenotype_dataset(patient)
                 if sample is not None:
                     samples.append(sample)

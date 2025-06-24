@@ -5,11 +5,10 @@ import os
 from transformers import AutoTokenizer, AutoModel
 import torch.nn as nn
 from timm.models.layers import trunc_normal_
-from vector_quantization_soft_one import VectorQuantizer
+from vector_quantization_soft_one_new import VectorQuantizer
 import random
 import dgl
 import torch.nn.functional as F
-from graphdecoder import SpectralGraphDecoder, GraphLevelDecoder
 from loss import edge_loss, info_nce_loss, alignment_loss
 
 class GraphEncoder(torch.nn.Module):
@@ -70,7 +69,7 @@ class MultimodalTokenizer(torch.nn.Module):
                  graph_in_channels: int = 128, graph_hidden_channels: int = 64, graph_out_channels: int = 32,
                  encoder_text_code_dim: int = 256, decoder_dim: int = 256, encoder_dim: int = 256, output_channels: int = 128,
                  encoder_decoder_hidden_states: int = 256,
-                 codebook_size: int = 18000, codebook_embed_dim: int = 8, commit_loss_beta: float = 1.0, entropy_loss_ratio: float = 0.0,
+                 codebook_size: int = 21000, codebook_embed_dim: int = 8, commit_loss_beta: float = 1.0, entropy_loss_ratio: float = 0.0,
                  codebook_l2_norm: bool = True, codebook_show_usage: bool = True, use_kmeans: bool = False):
         super(MultimodalTokenizer, self).__init__()
         # Initialize text tokenizer and model
@@ -105,15 +104,7 @@ class MultimodalTokenizer(torch.nn.Module):
             nn.Tanh(),
             nn.Linear(self.hidden_states, self.text_code_dim) ##for quantize??
         )
-        self.decoder_task_layer = nn.Sequential(
-            nn.Linear(self.decoder_dim, self.hidden_states),
-            nn.Tanh(),
-            nn.Linear(self.hidden_states, output_channels)
-        )
         self.encoder_task_layer.apply(self._init_weights)
-        self.decoder_task_layer.apply(self._init_weights)
-        ##here the decoder tasks, one should be the structure reconstruction and the node type reconstruction, the other should be what??
-        self.graph_decoder = GraphLevelDecoder(graph_dim=graph_out_channels, num_nodes=2000, hidden_dim=graph_hidden_channels)
 
         ##parameters required for vector quantization
         self.text_code_dim = 768 ##the dim of text encoder
@@ -174,10 +165,8 @@ class MultimodalTokenizer(torch.nn.Module):
 
         h = torch.cat((text_sentence_features, graph_features), dim=-1)  ##[bz, text_dim + graph_dim]
         h_aug = torch.cat((text_sentence_features_aug, graph_features_aug), dim=-1)  ##[bz, text_dim + graph_dim]
-        #print("quant_input: ", h.shape)
 
         if self.enable_var:
-            # VAR
             residual = h
             final_quantize = 0.
             all_loss = []
@@ -208,11 +197,6 @@ class MultimodalTokenizer(torch.nn.Module):
         else:
             final_quantize = self.quantize(h, text_features, graph_node_features, text_attention_mask, batch, h_aug)
             return final_quantize
-
-    def decode_code(self, code_b, shape=None, channel_first=True):
-        quant_b = self.quantize.get_codebook_entry(code_b, shape, channel_first)
-        dec = self.decode(quant_b)
-        return dec
     
     def forward(self, inputs):
         ## the input is (medical code description, medical code graph)
@@ -232,7 +216,6 @@ class MultimodalTokenizer(torch.nn.Module):
         graph_node_features_aug = self.tokenize_graph(inputs.x, graph_edge_index_aug, graph_rel_index_aug)[-1] ##[bz, node_num, graph_dim], returned feature is a list recording the hidden states of each layer
         graph_features_aug = global_mean_pool(graph_node_features_aug, inputs.batch) ##use the last layer hidden states as the graph features
         
-        ##cross attention to make text_features and graph_features know each other [later]
         ##map the text_features and graph_features to the same dim
         text_features = self.text_mapped(text_features.last_hidden_state)
         text_features_aug = self.text_mapped(text_features_aug.last_hidden_state)
@@ -271,19 +254,4 @@ class MultimodalTokenizer(torch.nn.Module):
         quantized_embedding = torch.cat((specific_embedding_text, specific_embedding_graph, shared_text_embedding, shared_graph_embedding), dim=-1)
 
         return quantized_embedding
-
-# Example usage
-if __name__ == "__main__":#
-    tokenizer = MultimodalTokenizer()
-
-    # Text input (medical code description)
-    text_input = "Hypertension is a condition with elevated blood pressure."
-
-    # Graph input (biological process subgraph)
-    node_features = torch.rand((10, 128))  # 10 nodes with 128-dimensional features
-    edge_index = torch.tensor([[0, 1, 2, 3, 4, 5], [1, 2, 3, 4, 5, 0]])  # Edge list in COO format
-
-    # Tokenize and combine
-    multimodal_output = tokenizer.tokenize(text=text_input, node_features=node_features, edge_index=edge_index)
-    print("Multimodal features shape:", multimodal_output.shape)
 

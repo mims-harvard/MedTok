@@ -3,46 +3,8 @@ import json
 import pandas as pd
 import os
 
-class QADataset:
-    def __init__(self, data, dir="../../KGARevion/dataset/"):
-        self.data = data.lower().split("_")[0]
-        benchmark = json.load(open(os.path.join(dir, "benchmark.json")))
-        if self.data not in benchmark:
-            raise KeyError("{:s} not supported".format(data))
-        
-        self.dataset = benchmark[self.data]
-        self.index = sorted(self.dataset.keys())
-
-    def __process_data__(self, key):
-        data = self.dataset[self.index[key]]
-        question = data["question"]
-        choices = [v for k, v in data["options"].items()]
-
-        options = [" A: ", " B: ", " C: ", " D: "]
-
-        text = question + "\n"
-        for j in range(len(choices)):
-            text += "{} {}\n".format(options[j], choices[j])
-
-        answer = data["answer"].strip()
-        label_index = ord(answer) - ord('A')
-        answer_content = choices[label_index]
-
-        return {"text": text, "answer": answer, "answer_index": label_index, "answer_content": answer_content}
-
-    def __len__(self):
-        return len(self.dataset)
-    
-    def __getitem__(self, key):
-        if type(key) == int:
-            return self.__process_data__(key)
-        elif type(key) == slice:
-            return [self.__getitem__(i) for i in range(self.__len__())[key]]
-        else:
-            raise KeyError("Key type not supported.")
-
 class AfrimedLoader:
-    def __init__(self, data='mcq_expert', dir="../../KGARevion/dataset/"):
+    def __init__(self, data='mcq_expert', dir="../Dataset/MedicalQA/", **kwargs):
         print("data is {}".format(data))
         if data == 'AfrimedQA-MCQ':
             self.data = 'mcq_expert'
@@ -134,7 +96,7 @@ class AfrimedLoader:
 
 
 def read_medical_code():
-    med_codes_pkg_map_path = '/n/holylfs06/LABS/mzitnik_lab/Lab/shvat372/icml_paper/ICML_codes/graphs/all_codes_mappings_v3.parquet'
+    med_codes_pkg_map_path = '../Dataset/medicalCode/all_codes_mappings_v3.parquet'
     medical_code = pd.read_parquet(med_codes_pkg_map_path)
     medical_code['med_code'] = medical_code['med_code'].apply(lambda x: x.replace('.', ''))
     #print(self.medical_code.head())
@@ -150,14 +112,6 @@ def read_query_icd_codes(dataset):
         code_dict_for_each_query = json.load(f)
     return code_dict_for_each_query
 
-def read_query():
-    path = "../../multi-hop-reasoning/stark_prime/prime_star_difficult.json"
-    with open(path, 'r') as f:
-        dataset = json.load(f)
-    
-    print(dataset[0])
-    return dataset
-
 def is_in_general_range(value, range_string):
     import re
     #print(value, range_string)
@@ -172,11 +126,7 @@ dataset = 'Afrimedqa'
 
 medical_code_vocabulary, medical_code_range = read_medical_code()
 code_dict_for_each_query = read_query_icd_codes(dataset)
-if dataset in ['difficult', 'easy', 'middle']:
-    data = read_query()
-elif dataset in ['medmcqa', 'mmlu', 'medqa']:
-    data = QADataset(dataset)
-elif dataset in ['Afrimedqa']:
+if dataset in ['Afrimedqa']:
     data = AfrimedLoader("AfrimedQA-MCQ")
 
 code_mapped = {}

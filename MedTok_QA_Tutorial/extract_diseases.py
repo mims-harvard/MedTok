@@ -43,7 +43,7 @@ def llm_output(query, new_tokens_num):
     return response.choices[0].message.content
 
 class AfrimedLoader:
-    def __init__(self, data='mcq_expert', dir="../../KGARevion/dataset/"):
+    def __init__(self, data='mcq_expert', dir="../Dataset/MedicalQA/", **kwargs):
         print("data is {}".format(data))
         if data == 'AfrimedQA-MCQ':
             self.data = 'mcq_expert'
@@ -133,82 +133,6 @@ class AfrimedLoader:
         else:
             raise KeyError("Key type not supported.")
 
-class QADataset:
-    def __init__(self, data, dir="../../KGARevion/dataset/"):
-        self.data = data.lower().split("_")[0]
-        benchmark = json.load(open(os.path.join(dir, "benchmark.json")))
-        if self.data not in benchmark:
-            raise KeyError("{:s} not supported".format(data))
-        
-        self.dataset = benchmark[self.data]
-        self.index = sorted(self.dataset.keys())
-
-    def __process_data__(self, key):
-        data = self.dataset[self.index[key]]
-        question = data["question"]
-        choices = [v for k, v in data["options"].items()]
-
-        options = [" A: ", " B: ", " C: ", " D: "]
-
-        text = question + "\n"
-        for j in range(len(choices)):
-            text += "{} {}\n".format(options[j], choices[j])
-
-        answer = data["answer"].strip()
-        label_index = ord(answer) - ord('A')
-        answer_content = choices[label_index]
-
-        return {"text": text, "answer": answer, "answer_index": label_index, "answer_content": answer_content}
-
-    def __len__(self):
-        return len(self.dataset)
-    
-    def __getitem__(self, key):
-        if type(key) == int:
-            return self.__process_data__(key)
-        elif type(key) == slice:
-            return [self.__getitem__(i) for i in range(self.__len__())[key]]
-        else:
-            raise KeyError("Key type not supported.")
-
-class MedQADataset:
-    def __init__(self, data, dir="./"):
-        self.data = data.lower().split("_")[0]
-        benchmark = json.load(open(os.path.join(dir, "medqa.json")))
-        if self.data not in benchmark:
-            raise KeyError("{:s} not supported".format(data))
-        
-        self.dataset = benchmark[self.data]
-        self.index = sorted(self.dataset.keys())
-
-    def __process_data__(self, key):
-        data = self.dataset[self.index[key]]
-        question = data["question"]
-        choices = [v for k, v in data["options"].items()]
-
-        options = [" A: ", " B: ", " C: ", " D: "]
-
-        text = question + "\n"
-        for j in range(len(choices)):
-            text += "{} {}\n".format(options[j], choices[j])
-
-        answer = data["answer"].strip()
-        label_index = ord(answer) - ord('A')
-        answer_content = choices[label_index]
-
-        return {"text": text, "answer": answer, "answer_index": label_index, "answer_content": answer_content}
-
-    def __len__(self):
-        return len(self.dataset)
-    
-    def __getitem__(self, key):
-        if type(key) == int:
-            return self.__process_data__(key)
-        elif type(key) == slice:
-            return [self.__getitem__(i) for i in range(self.__len__())[key]]
-        else:
-            raise KeyError("Key type not supported.")
-
 import json
 import openai
 
@@ -233,13 +157,6 @@ def get_icd_codes(query):
         ]
     }}
     """
-
-    '''response = openai.ChatCompletion.create(
-        model="gpt-4",
-        messages=[{"role": "system", "content": "You are a medical coding assistant."},
-                  {"role": "user", "content": prompt}],
-        temperature=0.2
-    )'''
 
     try:
         response = llm_output(prompt, new_tokens_num=256)
@@ -271,29 +188,16 @@ def get_icd_codes(query):
         return {"error": f"An unexpected error occurred: {str(e)}"}
 
 
-def load_complex_dataset(dataset_name):
-    path = "../../multi-hop-reasoning/stark_prime/prime_star_" + dataset_name + ".json"
-    with open(path, 'r') as f:
-        dataset = json.load(f)
-    
-    return dataset
-
 def main(args):
 
     ##load llm
     set_seed(42)
 
-    logging.basicConfig(filename = args.dataset + "_test_wo_review_rebuttal.log", level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
+    logging.basicConfig(filename = args.dataset + ".log", level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
     flag = 0
     code_dict_for_each_query = {}  
     ##load data
-    if args.dataset in ['difficult', 'easy', 'middle']:
-        data = load_complex_dataset(args.dataset)
-    elif args.dataset in ['medmcqa', 'mmlu']:
-        data = QADataset(args.dataset)
-    elif args.dataset in ['medqa']:
-        data = MedQADataset(args.dataset)
-    elif args.dataset in ['Afrimedqa']:
+    if args.dataset in ['Afrimedqa']:
         data = AfrimedLoader(data='AfrimedQA-MCQ')  # Load the MCQ dataset
     
     for idx, d in tqdm(enumerate(data),  total=len(data), desc=f'Evaluating data'):

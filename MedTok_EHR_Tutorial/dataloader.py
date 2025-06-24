@@ -3,6 +3,8 @@ import numpy as np
 from torch_geometric import data as DATA
 from torch_geometric.data import Batch
 
+med_codes_pkg_map_path = 'embeddings_all.npy'
+
 class PatientDataset(torch.utils.data.Dataset):
     def __init__(self, dataset, max_visits=50, max_medical_code=1000, task = 'mortality', labels=None):
         self.dataset = dataset
@@ -13,9 +15,12 @@ class PatientDataset(torch.utils.data.Dataset):
         self.gender_dict = {}
         self.labels = labels
 
-        ##here should be the embedding of medical codes
-        self.med_codes_pkg_map_path = '/n/netscratch/mzitnik_lab/Lab/xsu/MultimodalTokenizer/pre_trained_model/2025-01-12-03-47-16-000-GCN_bert-base-uncased/embeddings_all.npy'
+        ##here should be the embedding of medical codes or the tokenizer of MedTok
+        ## if you want to use the pre-trained embedding, please run the 'inference.py' in MedTok to get pre-trained embedding for each medical code
+        self.med_codes_pkg_map_path = med_codes_pkg_map_path
         self.pre_trained_embedding = np.load(self.med_codes_pkg_map_path)
+
+        ##or just use it as a tokenizer shown on Hugginface
     
     def time_format(self, datetime):
         days_in_year = 365  # Approximation; adjust if leap years matter in your context

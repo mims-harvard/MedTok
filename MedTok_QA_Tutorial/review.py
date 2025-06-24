@@ -66,22 +66,16 @@ class Review(nn.Module):
         new_labels = torch.full((bz, 512+2048), fill_value=-100, dtype=torch.long).cuda()  # Initialize new_labels with -100 for padding
         #new_labels = torch.cat((new_labels), dim=1)  # pad the labels to match the new input size
         for i in range(bz):
-            #print("input_ids[i]", input_ids[i])
-            #question_id = input_ids[i][0]
-            #input_id_i = input_ids[i][1:]
 
             attention_mask_i = attention_mask[i]
             first_non_pad_idx_i = torch.argmax(attention_mask_i).item()
-            #print("first_non_pad_idx_i", first_non_pad_idx_i)
 
             question_id = input_ids[i][first_non_pad_idx_i]
             input_id_i = input_ids[i][first_non_pad_idx_i+1:]
 
-            #print("question_id", question_id)
+            
             ts_embeddings = self.embeddings[question_id]
-            #print("ts_embeddings", ts_embeddings.shape)
             ts_embeddings_mask = torch.sum(self.embeddings_pad[question_id]).item()
-            #print("ts_embeddings_mask", ts_embeddings_mask)
             if ts_embeddings_mask > 512:
                 ts_embeddings_mask = 512
             ts_embeddings = self.projector(ts_embeddings[:int(ts_embeddings_mask)]) ##
@@ -89,9 +83,7 @@ class Review(nn.Module):
         
             query_embeds = self.llama_model.model.model.embed_tokens(input_id_i)
             input_embeds_i = torch.cat((ts_embeddings, query_embeds), dim=0)
-            #print(input_embeds_i.shape)
             concat_embeds[i, -input_embeds_i.shape[0]:] = input_embeds_i
-            #print("concat_embeds", concat_embeds.shape)
             attention_mask_new[i, -input_embeds_i.shape[0]:] = 1
             new_labels[i, -query_embeds.shape[0]:] = labels[i, -query_embeds.shape[0]:]  # Assign the labels for the query part
         

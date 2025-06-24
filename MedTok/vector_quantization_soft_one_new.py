@@ -11,7 +11,7 @@ import math
 from einops import rearrange
 import numpy as np
 from transformers.modeling_utils import get_parameter_device, get_parameter_dtype
-from norm_ema_quantizer import EmbeddingEMA, l2norm, norm_ema_inplace
+from MedTok.MedTok.norm_ema_quantizer import EmbeddingEMA, l2norm, norm_ema_inplace
 import torch.distributed as dist
 from graphdecoder import SpectralGraphDecoder
 ##soft means that the embedding are decided by top 10 closest embeddings, not the minimum one

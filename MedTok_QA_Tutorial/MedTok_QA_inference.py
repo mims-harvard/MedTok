@@ -5,7 +5,6 @@ import transformers
 from peft import PeftModel
 from tqdm import tqdm
 from sklearn.metrics import f1_score, accuracy_score, precision_score, recall_score
-
 from transformers import GenerationConfig, LlamaForCausalLM, LlamaTokenizer
 from transformers import AutoTokenizer, AutoModelForCausalLM
 from datasets import load_dataset
@@ -87,8 +86,7 @@ def generate_and_tokenize_prompt(data_point, inference=True):
 if __name__ == "__main__":
     cuda = "cuda:0"
     lora_weights = "r8_alpha_16_bz_256_epoch_1_llama3.1_lr_0.00001_review_ratio_0.8/"
-    test_data_path = "mmlu_dataset.json"
-    #embedding_path = "primekg/embeddings.pth"
+    test_data_path = "Afrimedqa_dataset.json"
     pretrain_emb_path: str = 'MedTok/embeddings_all_3000.npy'
     embeddings = np.load(pretrain_emb_path)
     miss_emb = torch.nn.Parameter(torch.randn(100, embeddings.shape[-1]), requires_grad=False)

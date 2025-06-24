@@ -3,7 +3,6 @@ import torch.nn as nn
 from tokenizer import MultimodalTokenizer
 import os
 import torch
-# the first flag below was False when we tested this script but True makes A100 training a lot faster:
 torch.backends.cuda.matmul.allow_tf32 = True
 torch.backends.cudnn.allow_tf32 = True
 import torch.distributed as dist
@@ -24,7 +23,7 @@ from utils.ema import update_ema, requires_grad
 #from dataset.augmentation import random_crop_arr
 #from dataset.build import build_dataset
 from tokenizer import MultimodalTokenizer
-from dataset.toy_dataset_creator import MedCodeDataset, custom_collate_fn
+from MedTok.MedTok.Dataset.dataset_creator import MedCodeDataset, custom_collate_fn
 from tqdm import tqdm
 from loss import shared_loss, specific_loss
 
@@ -224,12 +223,12 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--data-path", type=str, default='datasets/')
 
-    parser.add_argument("--kg-path", type=str, default='datasets/primeKG/', help="path to the knowledge graph")
-    parser.add_argument("--med-codes-pkg-map-path", type=str, default='datasets/code/all_codes_mapping_v2_w_og_mappings.parquet', help="path to the med codes package map")
-    parser.add_argument("--graph-save-path", type=str, default='MedTok/graph/', help="path to save the graph")
+    parser.add_argument("--kg-path", type=str, default='Datasets/primeKG/', help="path to the knowledge graph")
+    parser.add_argument("--med-codes-pkg-map-path", type=str, default='Datasets/medicalCode/all_codes_mappings_v3.parquet', help="path to the med codes package map")
+    parser.add_argument("--graph-save-path", type=str, default='Datasets/graph/', help="path to save the graph")
     
     parser.add_argument("--data-face-path", type=str, default=None, help="face datasets to improve vq model")
-    parser.add_argument("--cloud-save-path", type=str, default='MedTok/log/', help='please specify a cloud disk path, if not, local path')
+    parser.add_argument("--cloud-save-path", type=str, default='log/', help='please specify a cloud disk path, if not, local path')
     parser.add_argument("--no-local-save", action='store_true', help='no save checkpoints to local path for limited disk volume')
     parser.add_argument("--model", type=str, default="MultimodalTokenizer")
     parser.add_argument("--graph_model_name", type=str, choices=["GCN", "GAT", "GraphTransformer"], default="GCN")

@@ -22,7 +22,7 @@ import os
 from torch.nn.utils.rnn import pad_sequence
 from EHRDataset.load_data import PatientEHR
 from EHRDataset.dataloader import PatientDataset, collate
-from model.EHRModel_token import EHRModel
+from MedTok.EHR_Tutorial.EHRModel_token import EHRModel
 import sys
 import wandb
 from torch.utils.data import Dataset, Subset, DataLoader
@@ -81,7 +81,7 @@ def construct_args():
     parser.add_argument('--input_dim', type=int, default=64)
     parser.add_argument('--output_dim', type=int, default=64)
     parser.add_argument('--num_heads', type=int, default=4)
-    parser.add_argument('--embedding_path', type=str, default='/n/netscratch/mzitnik_lab/Lab/xsu/MultimodalTokenizer/pre_trained_model/2025-01-12-03-47-16-000-GCN_bert-base-uncased/embeddings_all.npy')
+    parser.add_argument('--embedding_path', type=str, default='MedTok/embeddings_all.npy')
 
     args = parser.parse_args()
     return args
@@ -214,7 +214,7 @@ def single_run(args, params, logger):
     print("Getting model...")
     
     model = EHRModel(model_name = 'Transformer', input_dim=args.input_dim, num_heads=args.num_heads, num_layers=args.num_layers, dropout_prob=args.dropout, 
-                     hidden_dim=args.hidden_dim, output_dim=args.output_dim, memory_bank_size=args.memory_bank_size, code_size=600000, lr=args.lr, task=args.task, num_class=num_class)
+                     hidden_dim=args.hidden_dim, output_dim=args.output_dim, memory_bank_size=args.memory_bank_size, code_size=21000, lr=args.lr, task=args.task, num_class=num_class)
     
     total_params = sum(param.numel() for param in model.parameters())
     print(total_params)

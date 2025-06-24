@@ -65,13 +65,8 @@ def train(
     num_prefix: int = 1,
     # llm hyperparams
     train_on_inputs: bool = False,  # if False, masks out inputs in loss
-    add_eos_token: bool = False,
     group_by_length: bool = False,  # faster, but produces an odd training loss curve
     # wandb params
-    wandb_project: str = "",
-    wandb_run_name: str = "",
-    wandb_watch: str = "all",  # options: false | gradients | all
-    wandb_log_model: str = "true",  # options: false | true
     resume_from_checkpoint: str = False,  # either training checkpoint or final adapter
     prompt_template_name: str = "alpaca",  # The prompt template to use, will default to alpaca.
     #kge_model: str = "pre_train_primekg/prime_rotate_new.pth"
@@ -140,9 +135,6 @@ def train(
         medical_tokens_label = [-100 for _ in range(cutoff_len)]  # Initialize with -100 for padding
         if len(medical_tokens) > 0:
             medical_tokens_label[:len(medical_tokens)] = medical_tokens
-        #print("medical_tokens", medical_tokens)
-
-        #print(prompt)
 
         #tokenized_full_prompt = tokenize(full_prompt)
         tokenized_full_prompt['input_ids'] = medical_tokens_max_length + tokenized_full_prompt['input_ids']
@@ -251,8 +243,6 @@ def train(
 
     model.save_pretrained(output_dir)
     torch.save(slama_model.projector, os.path.join(output_dir, "projector.pth"))
-    #torch.save(slama_model.embeddings, os.path.join(output_dir, "embeddings.pth"))
-    #torch.save(slama_model.lm_to_kg, os.path.join(output_dir, "lm_to_kg.pth"))
 
     print(
         "\n If there's a warning about missing keys above, please disregard :)"

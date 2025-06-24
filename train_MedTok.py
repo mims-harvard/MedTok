@@ -1,10 +1,5 @@
-# Modified from:
-#   fast-DiT: https://github.com/chuanyangjin/fast-DiT/blob/main/train.py
-#   nanoGPT: https://github.com/karpathy/nanoGPT/blob/master/model.py
-#   LlamaGen: https://github.com/FoundationVision/LlamaGen/
 import os
 import torch
-# the first flag below was False when we tested this script but True makes A100 training a lot faster:
 torch.backends.cuda.matmul.allow_tf32 = True
 torch.backends.cudnn.allow_tf32 = True
 import torch.distributed as dist
@@ -19,13 +14,11 @@ import argparse
 from glob import glob
 from copy import deepcopy
 
-from utils.logger import create_logger
-from utils.distributed import init_distributed_mode
-from utils.ema import update_ema, requires_grad
-#from dataset.augmentation import random_crop_arr
-#from dataset.build import build_dataset
+from MedTok.utils.logger import create_logger
+from MedTok.utils.distributed import init_distributed_mode
+from MedTok.utils.ema import update_ema, requires_grad
 from tokenizer import MultimodalTokenizer
-from dataset.toy_dataset_creator import MedCodeDataset, custom_collate_fn
+from MedTok.dataset_creator import MedCodeDataset, custom_collate_fn
 from tqdm import tqdm
 from loss import shared_loss, specific_loss
 
@@ -86,12 +79,9 @@ def main(args):
         graph_hidden_channels=args.graph_hidden_channels,
         graph_out_channels=args.graph_out_channels,
         codebook_size=args.codebook_size,
-        codebook_embed_dim=args.codebook_embed_dim,  ##codebook for graph
-        #semantic_code_dim=args.semantic_code_dim,    ##codebook for text
+        codebook_embed_dim=args.codebook_embed_dim,  ##codebook for graph, it is the same as semantic code dim
         commit_loss_beta=args.commit_loss_beta,
         entropy_loss_ratio=args.entropy_loss_ratio,
-        #dropout_p=args.dropout_p,
-        #kmeans=args.kmeans,
     )
     logger.info(f"Model Parameters: {sum(p.numel() for p in vq_model.parameters()):,}")
     if args.ema:
@@ -101,11 +91,9 @@ def main(args):
     vq_model = vq_model.to(device)
 
     print(vq_model.parameters())
-    #logger.info(f"Discriminator Parameters: {sum(p.numel() for p in vq_loss.discriminator.parameters()):,}")
 
     # initialize a GradScaler. If enabled=False scaler is a no-op
     scaler = torch.cuda.amp.GradScaler(enabled=(args.mixed_precision =='fp16'))
-    scaler_disc = torch.cuda.amp.GradScaler(enabled=(args.mixed_precision =='fp16'))
 
     # Setup optimizer
     if not args.finetune_decoder:
@@ -194,8 +182,6 @@ def main(args):
     vq_model.train()
     if args.ema:
         ema.eval()  # EMA model should always be in eval mode
-    #vq_loss = DDP(vq_loss.to(device), device_ids=[args.gpu])
-    #vq_loss.train()
 
     ptdtype = {'none': torch.float32, 'bf16': torch.bfloat16, 'fp16': torch.float16}[args.mixed_precision]
 
@@ -248,21 +234,6 @@ def main(args):
             
             scaler.step(optimizer)
             scaler.update()
-            
-            '''with torch.cuda.amp.autocast(dtype=ptdtype):
-                quantized_result_star = vq_model(inputs)
-
-                specific_loss_all = specific_loss(z1 = quantized_result['specific_embedding_text'],
-                                              z1_aug = quantized_result_star['specific_embedding_text_aug'],
-                                              z2 = quantized_result['specific_embedding_graph'],
-                                              z2_aug = quantized_result_star['specific_embedding_graph_aug'],
-                                              z1_c = quantized_result['shared_text_embedding'],
-                                              z2_c = quantized_result['shared_graph_embedding'])
-                loss_specific = specific_loss_all   
-            optimizer.zero_grad()
-            scaler.scale(loss_specific).backward()
-            scaler.step(optimizer)
-            scaler.update()'''
 
             # # Log loss values:
             loss = loss_common.item() #+ loss_specific.item()
@@ -281,8 +252,6 @@ def main(args):
                 avg_loss = avg_loss.item() / dist.get_world_size()
                 logger.info(f"(step={train_steps:07d}) Train Loss: {avg_loss:.4f}, Train Steps/Sec: {steps_per_sec:.2f}")
                 
-                #codebook_loss = codebook_loss.item()
-                #print(codebook_loss)
                 loss_dict = {
                     'loss': loss,
                     'loss_common_all': shared_loss_all.item(),
@@ -305,8 +274,7 @@ def main(args):
                     'codebook_usage_shared': quantized_result['shared_codebook_usage'],
                     'codebook_usage_text': quantized_result['text_specific_usage'],
                     'codebook_usage_graph': quantized_result['graph_specific_usage'],
-                } 
-                
+                }
                 if rank == 0:
                     wandb.log({**loss_dict}, step=train_steps)
 
@@ -336,7 +304,7 @@ def main(args):
                         logger.info(f"Saved checkpoint to {checkpoint_path}")
                     
                         # Get a list of all checkpoints in the directory
-                        checkpoint_files = glob(os.path.join(formatted_time + "-" + checkpoint_dir, "*.pt"))
+                        checkpoint_files = glob(os.path.join(time_record + "-" + checkpoint_dir, "*.pt"))
                         checkpoint_files.sort(key=os.path.getmtime)  # Sort by modification time
 
                         # Remove old checkpoints if there are more than max_checkpoints
@@ -361,14 +329,14 @@ def main(args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--data-path", type=str, default='datasets/')
+    parser.add_argument("--data-path", type=str, default='Dataset/')
 
-    parser.add_argument("--kg-path", type=str, default='/n/netscratch/mzitnik_lab/Lab/xsu/primeKG/', help="path to the knowledge graph")
-    parser.add_argument("--med-codes-pkg-map-path", type=str, default='/n/holylfs06/LABS/mzitnik_lab/Lab/shvat372/icml_paper/ICML_codes/graphs/all_codes_mappings_v3.parquet', help="path to the med codes package map")
-    parser.add_argument("--graph-save-path", type=str, default='/n/netscratch/mzitnik_lab/Lab/xsu/kg_temp_2912', help="path to save the graph")
+    parser.add_argument("--kg-path", type=str, default='Dataset/primeKG/', help="path to the knowledge graph")
+    parser.add_argument("--med-codes-pkg-map-path", type=str, default='Dataset/medicalCode/all_codes_mappings_v3.parquet', help="path to the med codes package map")
+    parser.add_argument("--graph-save-path", type=str, default='Dataset/kg_temp/', help="path to save the graph")
     
     parser.add_argument("--data-face-path", type=str, default=None, help="face datasets to improve vq model")
-    parser.add_argument("--cloud-save-path", type=str, default='/n/netscratch/mzitnik_lab/Lab/xsu/MultimodalTokenizer/log/', help='please specify a cloud disk path, if not, local path')
+    parser.add_argument("--cloud-save-path", type=str, default='Dataset/log/', help='please specify a cloud disk path, if not, local path')
     parser.add_argument("--no-local-save", action='store_true', help='no save checkpoints to local path for limited disk volume')
     parser.add_argument("--model", type=str, default="MultimodalTokenizer")
     parser.add_argument("--graph_model_name", type=str, choices=["GCN", "GAT", "GraphTransformer"], default="GCN")
@@ -381,7 +349,7 @@ if __name__ == "__main__":
     parser.add_argument("--graph_hidden_channels", type=int, default=128, help="hidden channels for graph encoder") 
     parser.add_argument("--graph_out_channels", type=int, default=64, help="output channels for graph encoder")
 
-    parser.add_argument("--codebook-size", type=int, default=30000, help="codebook size for vector quantization")
+    parser.add_argument("--codebook-size", type=int, default=21000, help="codebook size for vector quantization")
     parser.add_argument("--codebook-embed-dim", type=int, default=64, help="codebook dimension for graph quantization")
     parser.add_argument("--semantic-code-dim", type=int, default=64, help="codebook dimension for semantic quantization")
     parser.add_argument("--text-code-dim", type=int, default=64, help="codebook dimension for semantic quantization")
@@ -389,14 +357,13 @@ if __name__ == "__main__":
     parser.add_argument("--codebook-weight", type=float, default=1.0, help="codebook loss weight for vector quantization")
     parser.add_argument("--entropy-loss-ratio", type=float, default=0.0, help="entropy loss ratio in codebook loss")
     parser.add_argument("--commit-loss-beta", type=float, default=0.25, help="commit loss beta in codebook loss")
-    parser.add_argument("--shared-loss-beta", type=float, default=0.5, help="shared loss beta in codebook loss")
-    parser.add_argument("--specific-loss-lamb", type=float, default=0.5, help="specific loss lambda in codebook loss")
+    parser.add_argument("--shared-loss-beta", type=float, default=0.1, help="shared loss beta in codebook loss")
+    parser.add_argument("--specific-loss-lamb", type=float, default=0.1, help="specific loss lambda in codebook loss")
 
     parser.add_argument("--compile", action='store_true', default=False)
     parser.add_argument("--dropout-p", type=float, default=0.2, help="dropout_p")
-    parser.add_argument("--results-dir", type=str, default="/n/netscratch/mzitnik_lab/Lab/xsu/MultimodalTokenizer/pre_trained_model")
-    parser.add_argument("--dataset", type=str, default='imagenet')
-    parser.add_argument("--epochs", type=int, default=6)
+    parser.add_argument("--results-dir", type=str, default="pre_trained_model")
+    parser.add_argument("--epochs", type=int, default=50)
     parser.add_argument("--lr", type=float, default=1e-4)
     parser.add_argument("--weight-decay", type=float, default=5e-2, help="Weight decay to use.")
     parser.add_argument("--beta1", type=float, default=0.9, help="The beta1 parameter for the Adam optimizer.")
