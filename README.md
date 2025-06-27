@@ -31,13 +31,16 @@ sbatch run.sh
 
 ## 🛠️ How to use MedTok?
 
-We provide two ways to use MedTok. One is using this codebase to run inference script to get all tokens, the other is accessing MedTok by [MedTok](add links).
+We provide two ways to use MedTok. 
+
+One is using this codebase to run inference script to get all tokens and corresponding embeddings. The embeddings are also available at [MedTok](add_links).
 
 ```bash
 python inference.py
 ```
 or
 
+The other is accessing MedTok by [MedTok](add_links).
 ```bash
 from transformers import AutoTokenizer
 tokenizer = AutoTokenizer.from_pretrained("MedTok")
