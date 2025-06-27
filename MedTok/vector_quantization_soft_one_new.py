@@ -11,10 +11,9 @@ import math
 from einops import rearrange
 import numpy as np
 from transformers.modeling_utils import get_parameter_device, get_parameter_dtype
-from MedTok.MedTok.norm_ema_quantizer import EmbeddingEMA, l2norm, norm_ema_inplace
+from MedTok.norm_ema_quantizer import EmbeddingEMA, l2norm, norm_ema_inplace
 import torch.distributed as dist
-from graphdecoder import SpectralGraphDecoder
-##soft means that the embedding are decided by top 10 closest embeddings, not the minimum one
+##soft means that the embedding are decided by top K closest embeddings, not the minimum one
 class CrossAttentionLayer(nn.Module):
     def __init__(self, embed_dim, num_heads, dropout=0.1):
         """

@@ -5,11 +5,10 @@ import os
 from transformers import AutoTokenizer, AutoModel
 import torch.nn as nn
 from timm.models.layers import trunc_normal_
-from vector_quantization_soft_one_new import VectorQuantizer
+from MedTok.vector_quantization_soft_one_new import VectorQuantizer
 import random
 import dgl
 import torch.nn.functional as F
-from loss import edge_loss, info_nce_loss, alignment_loss
 
 class GraphEncoder(torch.nn.Module):
     def __init__(self, model_name, in_channels, hidden_channels, out_channels, num_nodes):
@@ -75,7 +74,7 @@ class MultimodalTokenizer(torch.nn.Module):
         # Initialize text tokenizer and model
         self.text_model = AutoModel.from_pretrained(text_model_name)
         self.text_model_aug = AutoModel.from_pretrained(text_model_name)
-        self.text_model_aug.config.hidden_dripout_prob = 0.3
+        self.text_model_aug.config.hidden_dropout_prob = 0.3
         self.text_model_aug.config.attention_dropout_prob = 0.3
 
         for param in self.text_model.parameters():
@@ -152,7 +151,7 @@ class MultimodalTokenizer(torch.nn.Module):
             with torch.no_grad():
                 outputs = self.text_model(input_ids, attention_mask)  ##size:[baz, token_len, out_channels] the out_channels depends on the backbone model
         
-        return outputs #, outputs.last_hidden_state.mean(dim=1)  # Return sentence-level representation
+        return outputs
 
     def tokenize_graph(self, x, edge_index, rel_index):
         """Encodes the graph input using a graph neural network."""
@@ -160,13 +159,15 @@ class MultimodalTokenizer(torch.nn.Module):
     
     def quant(self, text_features, graph_node_features, graph_features, text_features_aug, graph_node_features_aug, graph_features_aug, text_attention_mask, batch):
         ##input: text_features: [bz, text_dim], graph_features: [bz, graph_dim]
-        text_sentence_features = text_features.mean(dim=1)  ##[bz, text_dim]
-        text_sentence_features_aug = text_features_aug.mean(dim=1)  ##[bz, text_dim]
+        text_sentence_features = text_features[:, 0, :]  ##since this is a bert-based model, could just use the CLS token as the sentence feature
+        text_sentence_features_aug = text_features_aug[:, 0, :]  ##[bz, text_dim]
 
         h = torch.cat((text_sentence_features, graph_features), dim=-1)  ##[bz, text_dim + graph_dim]
         h_aug = torch.cat((text_sentence_features_aug, graph_features_aug), dim=-1)  ##[bz, text_dim + graph_dim]
+        #print("quant_input: ", h.shape)
 
         if self.enable_var:
+            # VAR
             residual = h
             final_quantize = 0.
             all_loss = []
@@ -222,8 +223,28 @@ class MultimodalTokenizer(torch.nn.Module):
 
         ##mapped text_features and graph_features to the same codebook
         quantized_result = self.quant(text_features, graph_node_features, graph_features, text_features_aug, graph_node_features_aug, graph_features_aug, text_attention_mask, batch)
+        
+        if self.training:
+            return quantized_result
+        else:
+            specific_embedding_text = quantized_result['specific_embedding_text']
+            specific_embedding_graph = quantized_result['specific_embedding_graph']
+            shared_text_embedding = quantized_result['shared_text_embedding']
+            shared_graph_embedding = quantized_result['shared_graph_embedding']
 
-        return quantized_result
+            shared_text_token_indices, shared_text_token_weights = quantized_result['shared_text_tokens'], quantized_result['shared_text_tokens_weights']
+            shared_graph_token_indices, shared_graph_token_weights = quantized_result['shared_graph_tokens'], quantized_result['shared_graph_tokens_weights']
+            text_token_indices, text_token_weights = quantized_result['text_tokens'], quantized_result['text_tokens_weights']
+            graph_token_indices, graph_token_weights = quantized_result['graph_tokens'], quantized_result['graph_tokens_weights']
+
+            tokens = torch.cat((text_token_indices, graph_token_indices, shared_text_token_indices, shared_graph_token_indices), dim=-1)  ##[batch_size, token_num*4]
+            weights = torch.cat((text_token_weights, graph_token_weights, shared_text_token_weights, shared_graph_token_weights), dim=-1)  ##[batch_size, token_num*4]
+
+            tokens = tokens.view(-1, 4, tokens.size(-1)//4)
+            weights = weights.view(-1, 4, weights.size(-1)//4) 
+
+            quantized_embedding = torch.cat((specific_embedding_text, specific_embedding_graph, shared_text_embedding, shared_graph_embedding), dim=-1)
+            return quantized_embedding, tokens, weights
 
     @torch.no_grad()
     def tokenize(self, inputs):
@@ -254,4 +275,3 @@ class MultimodalTokenizer(torch.nn.Module):
         quantized_embedding = torch.cat((specific_embedding_text, specific_embedding_graph, shared_text_embedding, shared_graph_embedding), dim=-1)
 
         return quantized_embedding
-

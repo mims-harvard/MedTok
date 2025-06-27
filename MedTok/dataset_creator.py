@@ -211,6 +211,7 @@ class MedCodeDataset(Dataset):
         return edge_index, rel_index
     
     def get_med_desc(self):
+        #pre_path = 'Dataset/medicalCode'
         pre_path = '/n/netscratch/mzitnik_lab/Lab/xsu/MultimodalTokenizer'
         file_name = 'med_code_descriptions.pkl'
         path = os.path.join(pre_path, file_name)
@@ -228,6 +229,7 @@ class MedCodeDataset(Dataset):
         return med_code_des
     
     def get_med_graph(self):
+        #pre_path = 'Dataset/medicalCode'
         pre_path = '/n/netscratch/mzitnik_lab/Lab/xsu/MultimodalTokenizer'
         file_name = 'med_code_graph.pkl'
         path = os.path.join(pre_path, file_name)
@@ -246,8 +248,6 @@ class MedCodeDataset(Dataset):
         return med_code_graph
     
     def get_data(self, idx):
-        #print("get_data, id", idx)
-        #print(self.med_codes_pkg_df.iloc[idx])
        
         nodes_l = self.med_codes_pkg_df.iloc[idx]['pkg_index_list']#subgraph node list
         nodes_l.sort()
@@ -305,9 +305,9 @@ def custom_collate_fn(data_list):
 
 
 if __name__ == "__main__":
-    kg_path = '/n/netscratch/mzitnik_lab/Lab/xsu/primeKG/'
-    med_codes_pkg_map_path = '/n/netscratch/mzitnik_lab/Lab/xsu/toy_mappings.parquet'
-    graph_save_path = '/n/netscratch/mzitnik_lab/Lab/xsu/kg_temp_2912'
+    kg_path = '../Dataset/primeKG/kg.csv'
+    med_codes_pkg_map_path = '../Dataset/medicalCode/all_codes_mappings.parquet'
+    graph_save_path = '../Dataset/medicalCode/kg_temp_2912'
 
     medcode_dataset = MedCodeDataset(kg_path, graph_save_path, med_codes_pkg_map_path)
     dataloader = DataLoader(medcode_dataset, batch_size=1, num_workers=0, collate_fn=custom_collate_fn)

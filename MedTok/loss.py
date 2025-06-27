@@ -36,6 +36,7 @@ def adopt_weight(weight, global_step, threshold=0, value=0.):
         weight = value
     return weight
 
+
 def info_nce_loss(q, k, temperature=0.07):
     N = q.size(0)
     q = F.normalize(q, dim=-1)
@@ -82,15 +83,19 @@ def orthogonal_loss(z, z_star):
     return frobenius_norm
 
 
-def shared_loss(z1, z2, x1, x2, beta=0.5):
+def shared_loss(z1, z2, x1, x2, beta=0.1):
     """
     Compute the shared loss.
     """
-    loss1 = info_nce_loss(z1, z2) - beta * alignment_loss(x1, x2)
-    loss2 = info_nce_loss(z2, z1) - beta * alignment_loss(x2, x1)
-    return loss1 + loss2
+    x1_norm = F.normalize(x1, p=2, dim=-1)
+    x2_norm = F.normalize(x2, p=2, dim=-1)
+    #loss1 = info_nce_loss(z1, z2) - beta * alignment_loss(x1_norm, x2_norm)
+    #loss2 = info_nce_loss(z2, z1) - beta * alignment_loss(x2_norm, x1_norm)
+    
+    return info_nce_loss(z1, z2), alignment_loss(x1_norm, x2_norm), info_nce_loss(z2, z1), alignment_loss(x2_norm, x1_norm)
+    #return loss1 + loss2
 
-def specific_loss(z1, z1_aug, z2, z2_aug, z1_c, z2_c, lamb=0.5):
+def specific_loss(z1, z1_aug, z2, z2_aug, z1_c, z2_c, lamb=0.1):
     """
     Compute the specific loss.
     """
@@ -102,4 +107,7 @@ def specific_loss(z1, z1_aug, z2, z2_aug, z1_c, z2_c, lamb=0.5):
     z2_aug_hat = torch.cat([z2_aug, z1_c], dim=-1)
     loss2 = info_nce_loss(z2_hat, z2_aug_hat) + lamb * orthogonal_loss(z2, z2_c)
 
-    return loss1 + loss2
+    return info_nce_loss(z1_hat, z1_aug_hat), orthogonal_loss(z1, z1_c), info_nce_loss(z2_hat, z2_aug_hat), orthogonal_loss(z2, z2_c)
+
+
+

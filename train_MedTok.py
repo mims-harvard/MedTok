@@ -17,10 +17,10 @@ from copy import deepcopy
 from MedTok.utils.logger import create_logger
 from MedTok.utils.distributed import init_distributed_mode
 from MedTok.utils.ema import update_ema, requires_grad
-from tokenizer import MultimodalTokenizer
+from MedTok.tokenizer import MultimodalTokenizer
 from MedTok.dataset_creator import MedCodeDataset, custom_collate_fn
 from tqdm import tqdm
-from loss import shared_loss, specific_loss
+from MedTok.loss import shared_loss, specific_loss
 
 
 
@@ -210,9 +210,13 @@ def main(args):
                 codebook_loss = (quantized_result['shared_embed_loss'][0] + quantized_result['shared_embed_loss'][1] +
                                  quantized_result['text_specific_loss'][0] + quantized_result['text_specific_loss'][1] + 
                                  quantized_result['graph_specific_loss'][0]+quantized_result['graph_specific_loss'][1])
-                
+                        
                 shared_loss_11, shared_loss_12, shared_loss_21, shared_loss_22 = shared_loss(quantized_result['shared_text_embedding'], quantized_result['shared_graph_embedding'], quantized_result['text_feature'], quantized_result['graph_feature'])
-                shared_loss_all = shared_loss_11 + shared_loss_12 + shared_loss_21 + shared_loss_22
+                
+                share_loss_beta = args.shared_loss_beta
+                shared_loss_1 = shared_loss_11 - share_loss_beta * shared_loss_12
+                shared_loss_2 = shared_loss_21 - share_loss_beta * shared_loss_22
+                shared_loss_all = shared_loss_1 + shared_loss_2
 
                 specific_loss_11, specific_loss_12, specific_loss_21, specific_loss_22 = specific_loss(z1 = quantized_result['specific_embedding_text'],
                                               z1_aug = quantized_result['specific_embedding_text_aug'],
@@ -220,11 +224,13 @@ def main(args):
                                               z2_aug = quantized_result['specific_embedding_graph_aug'],
                                               z1_c = quantized_result['shared_text_embedding'],
                                               z2_c = quantized_result['shared_graph_embedding'])
-                specific_loss_all = specific_loss_11 + specific_loss_12 + specific_loss_21 + specific_loss_22
+    
+                specific_loss_1 = specific_loss_11 + args.specific_loss_lamb * specific_loss_12
+                specific_loss_2 = specific_loss_21 + args.specific_loss_lamb * specific_loss_22
+                specific_loss_all = specific_loss_1 + specific_loss_2
                 
-                beta = args.commit-loss-beta
-                lamb = args.specific-loss-lamb
-                loss_common = codebook_loss + beta * shared_loss_all + lamb * specific_loss_all
+                
+                loss_common = codebook_loss + shared_loss_all + specific_loss_all
         
             scaler.scale(loss_common).backward()
 
@@ -332,11 +338,11 @@ if __name__ == "__main__":
     parser.add_argument("--data-path", type=str, default='Dataset/')
 
     parser.add_argument("--kg-path", type=str, default='Dataset/primeKG/', help="path to the knowledge graph")
-    parser.add_argument("--med-codes-pkg-map-path", type=str, default='Dataset/medicalCode/all_codes_mappings_v3.parquet', help="path to the med codes package map")
+    parser.add_argument("--med-codes-pkg-map-path", type=str, default='Dataset/medicalCode/all_codes_mappings.parquet', help="path to the med codes package map")
     parser.add_argument("--graph-save-path", type=str, default='Dataset/kg_temp/', help="path to save the graph")
     
     parser.add_argument("--data-face-path", type=str, default=None, help="face datasets to improve vq model")
-    parser.add_argument("--cloud-save-path", type=str, default='Dataset/log/', help='please specify a cloud disk path, if not, local path')
+    parser.add_argument("--cloud-save-path", type=str, default='log/', help='please specify a cloud disk path, if not, local path')
     parser.add_argument("--no-local-save", action='store_true', help='no save checkpoints to local path for limited disk volume')
     parser.add_argument("--model", type=str, default="MultimodalTokenizer")
     parser.add_argument("--graph_model_name", type=str, choices=["GCN", "GAT", "GraphTransformer"], default="GCN")
