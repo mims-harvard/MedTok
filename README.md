@@ -33,14 +33,14 @@ sbatch run.sh
 
 We provide two ways to use MedTok. 
 
-One is using this codebase to run inference script to get all tokens and corresponding embeddings. The embeddings are also available at [HuggingFace](add_links).
+One is using this codebase to run inference script to get all tokens and corresponding embeddings. The embeddings are also available at [mims-harvard/MedTok](add_links). If you want to use the tokenized embedding for each medical code, please download it from [mims-harvard/MedTok](add_links) or [code2embeddings.json.zip](https://doi.org/10.7910/DVN/7XNT3M) directly.
 
 ```bash
 python inference.py
 ```
 or
 
-The other is accessing MedTok by [HuggingFace](add_links).
+The other is accessing MedTok by [mims-harvard/MedTok](add_links).
 ```bash
 from transformers import AutoTokenizer
 tokenizer = AutoTokenizer.from_pretrained("MedTok")
