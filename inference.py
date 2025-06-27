@@ -28,7 +28,8 @@ def main(root, pre_trained_model_name):
     assert torch.cuda.is_available(), "Inference."
     
     args_path = f"{root}/{pre_trained_model_name}/args.json"
-    checkpoint_path = f"{root}/{pre_trained_model_name}/checkpoints/0003000.pt"
+    ##please load the latest checkpoint .pt
+    checkpoint_path = f"{root}/{pre_trained_model_name}/checkpoints/*"
 
     import json
     from argparse import Namespace

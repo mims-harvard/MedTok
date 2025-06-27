@@ -1,5 +1,6 @@
 import os
 import torch
+# the first flag below was False when we tested this script but True makes H100 training a lot faster:
 torch.backends.cuda.matmul.allow_tf32 = True
 torch.backends.cudnn.allow_tf32 = True
 import torch.distributed as dist
@@ -20,7 +21,7 @@ from MedTok.utils.ema import update_ema, requires_grad
 from MedTok.tokenizer import MultimodalTokenizer
 from MedTok.dataset_creator import MedCodeDataset, custom_collate_fn
 from tqdm import tqdm
-from MedTok.loss import shared_loss, specific_loss
+from loss import shared_loss, specific_loss
 
 
 
@@ -45,10 +46,11 @@ def main(args):
     
     # Setup an experiment folder:
     if rank == 0:
+        time_record = time.strftime("%Y-%m-%d-%H-%M-%S", time.localtime())
         os.makedirs(args.results_dir, exist_ok=True)  # Make results folder (holds all experiment subfolders)
         experiment_index = len(glob(f"{args.results_dir}/*"))
         model_string_name = args.graph_model_name.replace("/", "-") + "_" + args.text_model_name.replace('/', "-")
-        experiment_dir = f"{args.results_dir}/{experiment_index:03d}-{model_string_name}"  # Create an experiment folder
+        experiment_dir = f"{args.results_dir}/{time_record}-{experiment_index:03d}-{model_string_name}"  # Create an experiment folder
         checkpoint_dir = f"{experiment_dir}/checkpoints"  # Stores saved model checkpoints
         os.makedirs(checkpoint_dir, exist_ok=True)
         import json
@@ -56,7 +58,6 @@ def main(args):
         logger = create_logger(experiment_dir)
         logger.info(f"Experiment directory created at {experiment_dir}")
 
-        time_record = time.strftime("%Y-%m-%d-%H-%M-%S", time.localtime())
         cloud_results_dir = f"{args.cloud_save_path}/{time_record}"
         cloud_checkpoint_dir = f"{cloud_results_dir}/{experiment_index:03d}-{model_string_name}/checkpoints"
         os.makedirs(cloud_checkpoint_dir, exist_ok=True)
@@ -79,7 +80,8 @@ def main(args):
         graph_hidden_channels=args.graph_hidden_channels,
         graph_out_channels=args.graph_out_channels,
         codebook_size=args.codebook_size,
-        codebook_embed_dim=args.codebook_embed_dim,  ##codebook for graph, it is the same as semantic code dim
+        codebook_embed_dim=args.codebook_embed_dim,  ##codebook for graph
+        #semantic_code_dim=args.semantic_code_dim,    ##codebook for text
         commit_loss_beta=args.commit_loss_beta,
         entropy_loss_ratio=args.entropy_loss_ratio,
     )
@@ -91,9 +93,11 @@ def main(args):
     vq_model = vq_model.to(device)
 
     print(vq_model.parameters())
+    #logger.info(f"Discriminator Parameters: {sum(p.numel() for p in vq_loss.discriminator.parameters()):,}")
 
     # initialize a GradScaler. If enabled=False scaler is a no-op
     scaler = torch.cuda.amp.GradScaler(enabled=(args.mixed_precision =='fp16'))
+    scaler_disc = torch.cuda.amp.GradScaler(enabled=(args.mixed_precision =='fp16'))
 
     # Setup optimizer
     if not args.finetune_decoder:
@@ -182,6 +186,7 @@ def main(args):
     vq_model.train()
     if args.ema:
         ema.eval()  # EMA model should always be in eval mode
+    
 
     ptdtype = {'none': torch.float32, 'bf16': torch.bfloat16, 'fp16': torch.float16}[args.mixed_precision]
 
@@ -240,7 +245,7 @@ def main(args):
             
             scaler.step(optimizer)
             scaler.update()
-
+            
             # # Log loss values:
             loss = loss_common.item() #+ loss_specific.item()
             running_loss += loss
@@ -258,6 +263,8 @@ def main(args):
                 avg_loss = avg_loss.item() / dist.get_world_size()
                 logger.info(f"(step={train_steps:07d}) Train Loss: {avg_loss:.4f}, Train Steps/Sec: {steps_per_sec:.2f}")
                 
+                #codebook_loss = codebook_loss.item()
+                #print(codebook_loss)
                 loss_dict = {
                     'loss': loss,
                     'loss_common_all': shared_loss_all.item(),
@@ -280,7 +287,8 @@ def main(args):
                     'codebook_usage_shared': quantized_result['shared_codebook_usage'],
                     'codebook_usage_text': quantized_result['text_specific_usage'],
                     'codebook_usage_graph': quantized_result['graph_specific_usage'],
-                }
+                } 
+                
                 if rank == 0:
                     wandb.log({**loss_dict}, step=train_steps)
 
@@ -305,7 +313,7 @@ def main(args):
                     if args.ema:
                         checkpoint["ema"] = ema.state_dict()
                     if not args.no_local_save:
-                        checkpoint_path = f"{time_record}-{checkpoint_dir}/{train_steps:07d}.pt"
+                        checkpoint_path = f"{checkpoint_dir}/{train_steps:07d}.pt"
                         torch.save(checkpoint, checkpoint_path)
                         logger.info(f"Saved checkpoint to {checkpoint_path}")
                     
@@ -330,6 +338,7 @@ def main(args):
     logger.info("Done!")
     dist.destroy_process_group()
     wandb.finish()
+
 
 
 
