@@ -49,6 +49,7 @@ from transformers import AutoModel
 ### 🏥MedTok for EHR
 We show an example on how to integrate our MedTok with a simple transformer-based model on MIMIC III, MIMIC IV, and EHRShot datasets. Please get access to these EHR datasets first, and then run: 
 ```bash
+cd MedTok_EHR_Tutorial
 python EHR_model_token.py
 ```
 
