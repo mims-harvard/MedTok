@@ -3,7 +3,7 @@ from typing import Optional, List, Dict, Union, Tuple
 
 import pandas as pd
 
-from pyhealth.data import Event, Visit, Patient
+from data import Event, Visit, Patient
 from pyhealth.datasets import BaseEHRDataset
 from pyhealth.datasets.utils import strptime
 

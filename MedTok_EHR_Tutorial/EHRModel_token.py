@@ -26,8 +26,6 @@ from sklearn.metrics import roc_auc_score, average_precision_score, f1_score
 import numpy as np
 # Import project config file
 import sys
-# sys.path.append('../..')
-# import project_config
 
 # Check if CUDA is available
 device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
@@ -87,7 +85,7 @@ class EHRModel(pl.LightningModule):
                  dropout_prob=0.5, pred_threshold=0.5, max_ehr_length=3000, code_size=600000,
                  lr=0.0001, wd=0.0, lr_factor=0.01, num_class=2, task='readmission', lr_patience=100, lr_threshold=1e-4,
                  lr_threshold_mode='rel', lr_cooldown=0, min_lr=1e-8, eps=1e-8, lr_total_iters=10, memory_bank_size = 512, 
-                 pre_trained_embedding = '/n/netscratch/mzitnik_lab/Lab/xsu/MultimodalTokenizer/pre_trained_model/2025-01-12-03-47-16-000-GCN_bert-base-uncased/embeddings_all.npy',
+                 pre_trained_embedding = '../pre_trained_model_/{pretrained_model_name}/embeddings_all.npy',
                  hparams = None):
 
         super().__init__()

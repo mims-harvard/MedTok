@@ -20,9 +20,9 @@ import pandas as pd
 import pickle
 import os
 from torch.nn.utils.rnn import pad_sequence
-from EHRDataset.load_data import PatientEHR
-from EHRDataset.dataloader import PatientDataset, collate
-from MedTok.EHR_Tutorial.EHRModel_token import EHRModel
+from load_data import PatientEHR
+from dataloader import PatientDataset, collate
+from EHRModel_token import EHRModel
 import sys
 import wandb
 from torch.utils.data import Dataset, Subset, DataLoader
@@ -81,7 +81,7 @@ def construct_args():
     parser.add_argument('--input_dim', type=int, default=64)
     parser.add_argument('--output_dim', type=int, default=64)
     parser.add_argument('--num_heads', type=int, default=4)
-    parser.add_argument('--embedding_path', type=str, default='MedTok/embeddings_all.npy')
+    parser.add_argument('--embedding_path', type=str, default='../pretrained_model/{pretrained_model_name}/embeddings_all.npy')
 
     args = parser.parse_args()
     return args

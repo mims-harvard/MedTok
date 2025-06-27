@@ -8,10 +8,10 @@ from torch_geometric.utils import k_hop_subgraph, subgraph
 from torch_geometric.data import Data
 from tqdm import tqdm
 import multiprocessing
-from EHRDataset.data import Event, Visit, Patient
-from EHRDataset.mimic3 import MIMIC3Dataset
-from EHRDataset.mimic4 import MIMIC4Dataset
-from EHRDataset.ehrshot import EHRShotDataset
+from data import Event, Visit, Patient
+from mimic3 import MIMIC3Dataset
+from mimic4 import MIMIC4Dataset
+from ehrshot import EHRShotDataset
 from pyhealth.datasets import BaseEHRDataset
 from pyhealth.datasets.utils import strptime
 from pyhealth.tasks import drug_recommendation_mimic3_fn
@@ -42,8 +42,8 @@ import os
 from torch.nn.utils.rnn import pad_sequence
 import wandb
 
-root = "./"  ##the root directory to save the processed EHR data and access the EHR data
-med_codes_pkg_map_path = '../medicalCode/all_codes_mappings_v3.parquet'
+root = "../Dataset/EHR"  ##the root directory to save the processed EHR data and access the EHR data
+med_codes_pkg_map_path = '../Dataset/medicalCode/all_codes_mappings_v3.parquet'
 
 ##read patient EHR data for MIMIC III or MIMIC IV and then obtain the corresponding format for each of tasks, and then generate patient-specific graph for each patient for each visit
 class PatientEHR(object):
@@ -72,16 +72,12 @@ class PatientEHR(object):
         self.procedure_dict = {}
         self.drug_dict = {}
 
-        if os.path.exists(os.path.join(self.root, f"{dataset}_patient_{task}.pkl")):
-            with open(os.path.join(self.root, f"{dataset}_patient_{task}.pkl"), 'rb') as f:
+        if os.path.exists(os.path.join(self.root, f"{dataset}",f"{dataset}_patient_{task}.pkl")):
+            with open(os.path.join(self.root, f"{dataset}", f"{dataset}_patient_{task}.pkl"), 'rb') as f:
                 self.patient_ehr_data = pickle.load(f)
         else:
             self.database = self.load_database()
-            #print("database")
-            #if self.dataset in ['MIMIC_III', 'MIMIC_IV']:
             self.patient_ehr_data = self.process_structure_EHR_for_patient()
-            #elif self.dataset in ['EHRShot']:
-            #    self.patient_ehr_data = self.process_structure_EHR_for_EHRShot()
     
     def load_database(self):
         ##the structure EHR data are consctructed by patient, dianosis, procedures, prescriptions, and labevents tables
@@ -124,10 +120,6 @@ class PatientEHR(object):
         ##process the structure EHR data for each patient
         samples = []
 
-        #disease_candidate = ['E785', '2724', 'E780', 'E781', 'E782', 'E7800', 'E7801', 'E7841', 'E7849', 'E785', 'E786', 'E7870', 'E7871', 'E7872', 'E7879', 'E7881','E7889', 'E789']
-        #disease_candidate = ['C250', 'C251', 'C252', 'C253', 'C254', 'C257', 'C259', '1579', '1570', '1571', '1572', '1573', '1574', '1578']
-        #disease_candidte = []
-        #disease_candidate = ['M329', '7100'] ##lupus
         disease_candidate = ['4100', '4101', '4102', '4103', '4104', '4105', '4106', '4107', '4108', '4109', 'I210', 'I211', 'I213', 'I214', 'I219', 'I22x', '41000', '41001', '41010', '41011', '41020', '41021', '41030', '41031', '41040', '41041', '41050', '41051', '41060', '41061', '41070', '41071', '41080', '41081', '41090', '41091'] ##AMI
         disease_candidate_index = []
         for d in disease_candidate:

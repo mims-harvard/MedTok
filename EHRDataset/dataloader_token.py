@@ -3,24 +3,19 @@ import numpy as np
 from torch_geometric import data as DATA
 from torch_geometric.data import Batch
 
-med_codes_pkg_map_path = PRE_TRAINED_EMBEDDING_PATH #or use huggingface to load the embeddings
-
 class PatientDataset(torch.utils.data.Dataset):
-    def __init__(self, dataset, max_visits=50, max_medical_code=1000, task = 'mortality', labels=None):
+    def __init__(self, dataset, max_visits=50, max_medical_code=100, task = 'mortality', labels=None):
         self.dataset = dataset
         self.max_visits = max_visits
         self.max_medical_code = max_medical_code
         self.task = task
         self.ethnicity_dict = {}
         self.gender_dict = {}
-        self.labels = labels
 
-        ##here should be the embedding of medical codes or the tokenizer of MedTok
-        ## if you want to use the pre-trained embedding, please run the 'inference.py' in MedTok to get pre-trained embedding for each medical code
-        self.med_codes_pkg_map_path = med_codes_pkg_map_path
+        ##load the embeddings of medical codes
+        self.med_codes_pkg_map_path = PRE_TRAINED_EMBEDDING_PATH #or use huggingface to load the embeddings
         self.pre_trained_embedding = np.load(self.med_codes_pkg_map_path)
-
-        ##or just use it as a tokenizer shown on Hugginface
+        self.labels = labels
     
     def time_format(self, datetime):
         days_in_year = 365  # Approximation; adjust if leap years matter in your context
@@ -74,35 +69,12 @@ class PatientDataset(torch.utils.data.Dataset):
             node_set = [self.pre_trained_embedding.shape[0] if x == -1 else x for x in node_set]
             visit_order_id.extend([v_i for _ in range(len(node_set))])
             codes.extend(node_set)
-    
+
         ##get_masking_strategy
         code_mask = np.ones(shape=(self.max_medical_code, 1))
         code_mask[:len(codes)] = 0
-       
-        d = self.max_medical_code - len(codes)
-        #print(d)
-        pad = [0 for _ in range(d)]
-        codes.extend(pad)
-        visit_order_id.extend(pad)
 
-        return np.array(codes).reshape(self.max_medical_code, 1), np.array(visit_order_id).reshape(self.max_medical_code, 1), code_mask
-
-    def get_visit_EHRShot(self, codes_map):
-        codes = []
-        visit_order_id = []
-        for v_i, _ in enumerate(codes_map):
-            code_visit = codes_map[v_i]
-            node_set = code_visit
-            node_set = [self.pre_trained_embedding.shape[0] if x == -1 else x for x in node_set]
-            visit_order_id.extend([v_i for _ in range(len(node_set))])
-            codes.extend(node_set)
-    
-        ##get_masking_strategy
-        code_mask = np.ones(shape=(self.max_medical_code, 1))
-        code_mask[:len(codes)] = 0
-       
         d = self.max_medical_code - len(codes)
-        #print(d)
         pad = [0 for _ in range(d)]
         codes.extend(pad)
         visit_order_id.extend(pad)
@@ -129,9 +101,8 @@ class PatientDataset(torch.utils.data.Dataset):
         sorted_discharge_timestamp = data['timestamp_discharge'] 
         time_interval_between_visit, time_interval_within_visit = self.calculate_time_interval(birthdate, list(sorted_encounter_timestamp), list(sorted_discharge_timestamp))
         
-        #if self.dataset in ['MIMIC_III', 'MIMIC_IV']:
         code_index, visit_id, code_mask = self.get_visit(data['conditions_map'], data['procedures_map'], data['drugs_map'])## should be [max_medical_code]
-        
+
         data = DATA.Data(x=torch.LongTensor([code_index]),
                          visit_id = torch.LongTensor([visit_id]),
                          code_mask = torch.LongTensor([code_mask]),
@@ -139,7 +110,7 @@ class PatientDataset(torch.utils.data.Dataset):
                          ethnicity = torch.LongTensor([int(ethnicity_int)]),
                          timestamp_within_visits = torch.LongTensor(np.array([time_interval_within_visit])),
                          timestamp_between_visits = torch.LongTensor(np.array([time_interval_between_visit])),
-                         label = torch.Tensor([self.labels[idx]]),
+                         label = torch.LongTensor([self.labels[idx]]),
                         )
         
         data.__setitem__('c_size', torch.LongTensor([len(code_index)]))
