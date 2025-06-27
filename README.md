@@ -23,7 +23,7 @@ conda activate MedTok
 
 ## 💡 How to train MedTok?
 
-To train MedTok, please first download [all_codes_mappings.parquet](data_link) to 'Dataset/medicalCode/', [primeKG.bin](data link) to 'Dataset/primeKG/' and then run:
+To train MedTok, please first download [all_codes_mappings.parquet](https://doi.org/10.7910/DVN/7XNT3M) to 'Dataset/medicalCode/', [primeKG.bin](https://doi.org/10.7910/DVN/7XNT3M) to 'Dataset/primeKG/' and then run:
 
 ```bash
 sbatch run.sh
