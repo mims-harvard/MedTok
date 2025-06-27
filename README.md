@@ -33,14 +33,14 @@ sbatch run.sh
 
 We provide two ways to use MedTok. 
 
-One is using this codebase to run inference script to get all tokens and corresponding embeddings. The embeddings are also available at [MedTok](add_links).
+One is using this codebase to run inference script to get all tokens and corresponding embeddings. The embeddings are also available at [HuggingFace](add_links).
 
 ```bash
 python inference.py
 ```
 or
 
-The other is accessing MedTok by [MedTok](add_links).
+The other is accessing MedTok by [HuggingFace](add_links).
 ```bash
 from transformers import AutoTokenizer
 tokenizer = AutoTokenizer.from_pretrained("MedTok")
@@ -53,8 +53,9 @@ embed = tokenizer.embed("E11.9")
 Please first download EHR datasets to 'Dataset/EHR/{EHR_dataset_name}', and then run:
 ```bash
 cd MedTok_EHR_Tutorial
-python EHRModel_token.py
+python MedTok_EHR.py
 ```
+Note for applying MedTok with EHRShot, please preprocessing EHRShot dataset as the format as MIMIC-III and MIMIC-IV, which means prepare the data into several CSV files, including admission, diagnosis, procedure, medication/prescriptions.
 
 ### ❓MedTok for MedicalQA
 To finetune LLMs with datasets we presented in our paper, please run the following command:
