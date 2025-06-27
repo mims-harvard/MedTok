@@ -25,7 +25,7 @@ conda activate MedTok
 
 ## 💡 How to train MedTok?
 
-To train MedTok, please first download [raw data](data_link) to xx and then run:
+To train MedTok, please first download [raw data](data_link) to 'dataset/' and then run:
 
 ```bash
 python train_MedTok.py
