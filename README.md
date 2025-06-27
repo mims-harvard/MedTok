@@ -9,14 +9,12 @@ Foundation models trained on patient electronic health records (EHRs) require to
 
 ## 🚀 Installation
 
-1⃣️ First, clone the Github repository:
+Clone the Github repository and setup the enviroment.
 
 ```bash
 git clone https://github.com/mims-harvard/MedTok
 cd MedTok
 ```
-
-2⃣️ Then, set up the environment. To create an environment with all of the required packages, please ensure that conda is installed and then execute the commands:
 
 ```bash
 conda env create -f MedTok.yaml
