@@ -28,7 +28,7 @@ wandb.login()
 
 set_seed(42)
 
-from peft import PrefixEncoder, PrefixTuningConfig, get_peft_model, set_peft_model_state_dict, get_peft_model_state_dict
+from peft import get_peft_model, set_peft_model_state_dict, get_peft_model_state_dict
 from transformers import AutoTokenizer, AutoModelForCausalLM
 from peft import (
     LoraConfig,
@@ -38,42 +38,40 @@ from peft import (
     set_peft_model_state_dict,
     TaskType
 )
-from utils.prompter import Prompter
 
 
 def train(
     base_model: str = "meta-llama/Meta-Llama-3.1-8B-Instruct",  # the only required argument
-    data_path: str = "medmcqa_dataset.json", ##training data path
-    output_dir: str = "./r8_alpha_16_bz_256_epoch_1_llama3.1_lr_0.00001_review_ratio_0.8",  # where to save the final model
+    data_path: str = "../Dataset/MedicalQA/medmcqa_dataset.json",
+    output_dir: str = "./llama_lora_finetune",
     # training hyperparams
     batch_size: int = 64,
     micro_batch_size: int = 8,
-    num_epochs: int = 10,
-    learning_rate: float = 1e-5,
+    num_epochs: int = 20,
+    learning_rate: float = 5e-5,
     cutoff_len: int = 256,
     val_set_size: int = 0,
     # lora hyperparams
-    lora_r: int = 8,
-    lora_alpha: int = 16,
-    lora_dropout: float = 0.02,
+    lora_r: int = 16,
+    lora_alpha: int = 32,
+    lora_dropout: float = 0.01,
     lora_target_modules: List[str] = [
         "q_proj",
-        "k_proj",
+        #"k_proj",
         "v_proj",
-        "o_proj",
+        #"o_proj",
     ],
     num_prefix: int = 1,
     # llm hyperparams
     train_on_inputs: bool = False,  # if False, masks out inputs in loss
+    add_eos_token: bool = False,
     group_by_length: bool = False,  # faster, but produces an odd training loss curve
-    # wandb params
     resume_from_checkpoint: str = False,  # either training checkpoint or final adapter
     prompt_template_name: str = "alpaca",  # The prompt template to use, will default to alpaca.
     #kge_model: str = "pre_train_primekg/prime_rotate_new.pth"
 ):
     gradient_accumulation_steps = batch_size // micro_batch_size
     print("gradient_accumulation")
-    prompter = Prompter(prompt_template_name)
 
     device_map = "auto"
     ddp = world_size != 1
@@ -90,7 +88,6 @@ def train(
     print(backbone_model)
 
     tokenizer.pad_token_id = tokenizer.eos_token_id
-    tokenizer.pad_token = tokenizer.eos_token
     tokenizer.padding_side = "left"  # Allow batched inference
 
     def tokenize(prompt, add_eos_token=True):
@@ -98,7 +95,7 @@ def train(
             prompt,
             truncation=True,
             max_length=cutoff_len,
-            padding=True,
+            padding=False,
             return_tensors=None,
         )
         if (
@@ -110,8 +107,29 @@ def train(
             result["attention_mask"].append(1)
 
         result["labels"] = result["input_ids"].copy()
+        if not train_on_inputs:
+            result["labels"] = [-100] * (len(result["input_ids"]) - 1) + result["labels"][-1:]
 
         return result
+
+    def build_llama_prompt(system_prompt, user_input, assistant_output=None):
+        
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_input}
+
+        ]
+
+        text = tokenizer.apply_chat_template(
+            messages,
+            tokenize=False,
+            add_generation_prompt=True
+        )
+        
+        if assistant_output is not None:
+            text += f"\n{assistant_output}"
+
+        return text
 
     def generate_and_tokenize_prompt(data_point):
         ##give an example
@@ -119,27 +137,19 @@ def train(
         query, output = data_point['input'][:2]
         medical_tokens = data_point['medical_codes']
 
-        instruction = "The following is a multiple-choice medical question. Please directly select and provide the correct answer from options 'A', 'B, 'C', 'D'. Only return the correct answer by 'A', 'B', 'C', or 'D'."
+        ins = "The following is a multiple-choice medical question. Please directly select and provide the correct answer from options 'A', 'B, 'C', 'D'. Only return the correct answer by 'A', 'B', 'C', or 'D'."
+        question = "The question is: " + query + "\n Answer: \n"
 
-        full_prompt = prompter.generate_prompt(
-            instruction,
-            "\nThe question is: \n{query}\n Answer: ".format(query=query),
-            output,
-        )
-        tokenized_full_prompt = tokenize(full_prompt)
-        
+        full_prompt = build_llama_prompt(system_prompt=ins, user_input=question, assistant_output=output)
+
         medical_tokens_max_length = [0 for _ in range(cutoff_len)]
         medical_tokens_max_length[:len(medical_tokens)] = medical_tokens
         medical_tokens_attention_mask = [0 for _ in range(cutoff_len)]
         medical_tokens_attention_mask[:len(medical_tokens)] = [1 for _ in range(len(medical_tokens))]
-        medical_tokens_label = [-100 for _ in range(cutoff_len)]  # Initialize with -100 for padding
-        if len(medical_tokens) > 0:
-            medical_tokens_label[:len(medical_tokens)] = medical_tokens
 
-        #tokenized_full_prompt = tokenize(full_prompt)
+        tokenized_full_prompt = tokenize(full_prompt)
         tokenized_full_prompt['input_ids'] = medical_tokens_max_length + tokenized_full_prompt['input_ids']
         tokenized_full_prompt['attention_mask'] = medical_tokens_attention_mask + tokenized_full_prompt['attention_mask']
-        tokenized_full_prompt['labels'] = medical_tokens_label + tokenized_full_prompt['labels']
     
         return tokenized_full_prompt
 
@@ -153,8 +163,7 @@ def train(
     )
     
     model = get_peft_model(backbone_model, config)
-    print(tokenizer.eos_token_id)
-    slama_model = Review(model, num_prefix, tokenizer.eos_token_id, hidden_dim=1024)
+    slama_model = Review(model, num_prefix, hidden_dim=1024)
 
     if data_path.endswith(".json") or data_path.endswith(".jsonl"):
         data = load_dataset("json", data_files=data_path)

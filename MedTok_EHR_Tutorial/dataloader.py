@@ -3,7 +3,7 @@ import numpy as np
 from torch_geometric import data as DATA
 from torch_geometric.data import Batch
 
-med_codes_pkg_map_path = PRE_TRAINED_EMBEDDING_PATH #or use huggingface to load the embeddings
+med_codes_pkg_map_path = '../MedTok/embeddings_all.npy'
 
 class PatientDataset(torch.utils.data.Dataset):
     def __init__(self, dataset, max_visits=50, max_medical_code=1000, task = 'mortality', labels=None):
@@ -131,7 +131,9 @@ class PatientDataset(torch.utils.data.Dataset):
         
         #if self.dataset in ['MIMIC_III', 'MIMIC_IV']:
         code_index, visit_id, code_mask = self.get_visit(data['conditions_map'], data['procedures_map'], data['drugs_map'])## should be [max_medical_code]
-        
+        #else:
+        #    code_index, visit_id, code_mask = self.get_visit_EHRShot(data['codes_map'])## should be [max_medical_code]
+        #print(self.labels[idx])
         data = DATA.Data(x=torch.LongTensor([code_index]),
                          visit_id = torch.LongTensor([visit_id]),
                          code_mask = torch.LongTensor([code_mask]),

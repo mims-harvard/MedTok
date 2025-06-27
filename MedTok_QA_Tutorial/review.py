@@ -11,38 +11,22 @@ class Review(nn.Module):
         self,
         model: LlamaForCausalLM,
         num_prefix: int,
-        pad_id: int,
         hidden_dim: int,
-        #kge_model: str,
-        pretrain_emb_path: str,
-        pretrained_emb_mask_path: str,
+        kge_model: str,
+        pretrain_emb_path: str = '../MedTok/embeddings_all.npy'
     ) -> None:
         super(Review, self).__init__()
         self.llama_model = model
-        self.max_length = 2048
-        ##for 8B 4096, for qwen 3584
-        self.llm_dim = self.llama_model.config.hidden_size  # 4096 for Llama-8B, 3584 for Qwen-7B
-        self.pad_id = pad_id
+        self.max_length = 256
+        ##for 8B 4096
+
         self.device = self.llama_model.device
-        self.projector = nn.Linear(64, self.llm_dim)
+        self.projector = nn.Linear(256, 4096)
         
         print("Adapter Load From {}".format(pretrain_emb_path))
-        embeddings = np.load(pretrain_emb_path).squeeze()
-        print(embeddings.shape)
-
-        padded_mask = np.load(pretrained_emb_mask_path).squeeze()
-        print(padded_mask.shape)
-        #padded_mask = np.load(pretrained_emb_mask_path).squeeze()
-        
-        #miss_emb = torch.nn.Parameter(torch.randn(10000, embeddings.shape[-1]), requires_grad=False)
-        #embeddings = np.concatenate((embeddings, miss_emb), axis=0)
-        self.embeddings = torch.tensor(embeddings).to(self.llama_model.device)  # Move embeddings to the same device as the model
+        embeddings = np.load(pretrain_emb_path)
+        self.embeddings = torch.tensor(embeddings).cuda()
         self.embeddings.to(self.device)
-
-        self.embeddings_pad = torch.tensor(padded_mask).to(self.llama_model.device)  # Move embeddings to the same device as the model
-        self.embeddings_pad.to(self.device)
-        if torch.isnan(self.embeddings).any():
-            print("NaN detected in inputs!")
     
     def forward(
         self,
@@ -60,35 +44,37 @@ class Review(nn.Module):
     ):  
        
         bz = input_ids.shape[0]
-        
-        attention_mask_new = torch.zeros((bz, 512+2048)).cuda()
-        concat_embeds = torch.ones((bz, 512+2048, self.llm_dim)).cuda() * self.llama_model.model.model.embed_tokens(torch.tensor(self.pad_id).cuda())
-        new_labels = torch.full((bz, 512+2048), fill_value=-100, dtype=torch.long).cuda()  # Initialize new_labels with -100 for padding
-        #new_labels = torch.cat((new_labels), dim=1)  # pad the labels to match the new input size
+        attention_mask_new = torch.zeros((bz, 512)).cuda()
+        concat_embeds = torch.ones((bz, 512, 4096)).cuda() * self.llama_model.model.model.embed_tokens(torch.tensor(128009).cuda())
+        new_labels = torch.full((bz, 512), fill_value=-100, dtype=torch.long)
         for i in range(bz):
+            input_id_i = input_ids[i]
+            attention_mask_i = attention_mask[i]  
+            
 
-            attention_mask_i = attention_mask[i]
             first_non_pad_idx_i = torch.argmax(attention_mask_i).item()
-
-            question_id = input_ids[i][first_non_pad_idx_i]
-            input_id_i = input_ids[i][first_non_pad_idx_i+1:]
-
+            medical_tokens_i = input_id_i[first_non_pad_idx_i:self.max_length]
+            attention_mask_medical_tokens_i = attention_mask_i[first_non_pad_idx_i:self.max_length]
+            medical_tokens_i = medical_tokens_i[attention_mask_medical_tokens_i == 1]
             
-            ts_embeddings = self.embeddings[question_id]
-            ts_embeddings_mask = torch.sum(self.embeddings_pad[question_id]).item()
-            if ts_embeddings_mask > 512:
-                ts_embeddings_mask = 512
-            ts_embeddings = self.projector(ts_embeddings[:int(ts_embeddings_mask)]) ##
+
+            medical_embeddings = self.embeddings[medical_tokens_i.long()]
+            medical_embeddings = F.normalize(medical_embeddings, p=2, dim=-1)
+            medical_embeddings = torch.mean(medical_embeddings, dim=0).unsqueeze(0)
+            medical_embeddings = self.projector(medical_embeddings) 
+
+
+            query_embeds = self.llama_model.model.model.embed_tokens(input_id_i[self.max_length:])
+            input_embeds_i = torch.cat((medical_embeddings, query_embeds), dim=0)
             
-        
-            query_embeds = self.llama_model.model.model.embed_tokens(input_id_i)
-            input_embeds_i = torch.cat((ts_embeddings, query_embeds), dim=0)
+
             concat_embeds[i, -input_embeds_i.shape[0]:] = input_embeds_i
             attention_mask_new[i, -input_embeds_i.shape[0]:] = 1
-            new_labels[i, -query_embeds.shape[0]:] = labels[i, -query_embeds.shape[0]:]  # Assign the labels for the query part
-        
+            
+            new_labels[i, -query_embeds.shape[0]:] = labels[i, :]
 
-        output = self.llama_model(
+        
+        return self.llama_model(
             input_ids=None,
             attention_mask=attention_mask_new,
             position_ids=position_ids,
@@ -100,6 +86,3 @@ class Review(nn.Module):
             output_hidden_states=output_hidden_states,
             return_dict=return_dict,
         )
-
-        #print("output",output)
-        return output

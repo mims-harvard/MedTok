@@ -43,7 +43,7 @@ from torch.nn.utils.rnn import pad_sequence
 import wandb
 
 root = "../Dataset/EHR"  ##the root directory to save the processed EHR data and access the EHR data
-med_codes_pkg_map_path = '../Dataset/medicalCode/all_codes_mappings_v3.parquet'
+med_codes_pkg_map_path = '../Dataset/medicalCode/all_codes_mappings.parquet'
 
 ##read patient EHR data for MIMIC III or MIMIC IV and then obtain the corresponding format for each of tasks, and then generate patient-specific graph for each patient for each visit
 class PatientEHR(object):

@@ -29,17 +29,29 @@ def tokenize(prompt, add_eos_token=True):
         padding=False,
         return_tensors=None,
     )
-    if (
-        result["input_ids"][-1] != tokenizer.eos_token_id
-        and len(result["input_ids"]) < 256
-        and add_eos_token
-    ):
-        result["input_ids"].append(tokenizer.eos_token_id)
-        result["attention_mask"].append(1)
-
+    
     result["labels"] = result["input_ids"].copy()
 
     return result
+
+def build_llama_prompt(system_prompt, user_input, assistant_output=None):
+        
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_input}
+
+        ]
+
+        text = tokenizer.apply_chat_template(
+            messages,
+            tokenize=False,
+            add_generation_prompt=True
+        )
+        
+        if assistant_output is not None:
+            text += f"\n{assistant_output}"
+
+        return text
 
 def generate_and_tokenize_prompt(data_point, inference=True):
     ##give an example
@@ -47,23 +59,13 @@ def generate_and_tokenize_prompt(data_point, inference=True):
     query, output = data_point['input'][:2]
     medical_tokens = data_point['medical_codes']
 
-    instruction = "The following is a multiple-choice medical question. Please directly select and provide the correct answer from options 'A', 'B, 'C', 'D'. Only return the correct answer by 'A', 'B', 'C', or 'D'."
+    ins = "The following is a multiple-choice medical question. Please directly select and provide the correct answer from options 'A', 'B, 'C', 'D'. Only return the correct answer by 'A', 'B', 'C', or 'D'."
+    question = "The question is: " + query + "\n Answer: \n"
 
     if inference:
-        # If inference is True, we want to generate a prompt without an answer
-        full_prompt = prompter.generate_prompt(
-            instruction,
-            "\nThe question is: \n{query}\n".format(query=query),
-            ""
-        )
-        # No output provided, just the question
-        # This is useful for inference where we want to generate an answer
+        full_prompt = build_llama_prompt(system_prompt=ins, user_input=question, assistant_output=None)
     else:
-        full_prompt = prompter.generate_prompt(
-            instruction,
-            "\nThe question is: \n{query}\n Answer: ".format(query=query),
-            output,
-        )
+        full_prompt = build_llama_prompt(system_prompt=ins, user_input=question, assistant_output=output)
     print("Full Prompt:", full_prompt)  # Debugging line to see the full prompt
     tokenized_full_prompt = tokenize(full_prompt)
 
@@ -85,9 +87,9 @@ def generate_and_tokenize_prompt(data_point, inference=True):
 
 if __name__ == "__main__":
     cuda = "cuda:0"
-    lora_weights = "r8_alpha_16_bz_256_epoch_1_llama3.1_lr_0.00001_review_ratio_0.8/"
-    test_data_path = "Afrimedqa_dataset.json"
-    pretrain_emb_path: str = 'MedTok/embeddings_all_3000.npy'
+    lora_weights = "./llama_lora_finetune"
+    test_data_path = "../Dataset/MedicalQA/Afrimedqa_dataset.json"
+    pretrain_emb_path: str = 'MedTok/embeddings_all.npy' ##the path of pretrained embeddings, or embeddings on HuggingFace
     embeddings = np.load(pretrain_emb_path)
     miss_emb = torch.nn.Parameter(torch.randn(100, embeddings.shape[-1]), requires_grad=False)
     embeddings = np.concatenate((embeddings, miss_emb), axis=0)
@@ -100,7 +102,7 @@ if __name__ == "__main__":
     tokenizer = AutoTokenizer.from_pretrained(base_path)
     print("tokenizers")
     
-    projector = torch.load("r8_alpha_16_bz_256_epoch_1_llama3.1_lr_0.00001_review_ratio_0.8/projector.pth", map_location='cuda:0')
+    projector = torch.load("./llama_lora_finetune/projector.pth", map_location='cuda:0')
     model = AutoModelForCausalLM.from_pretrained(
         base_path,
         #torch_dtype=torch.bfloat16
@@ -109,8 +111,6 @@ if __name__ == "__main__":
     model = PeftModel.from_pretrained(
         model,
         lora_weights,
-        #use_safetensors=True
-        #torch_dtype=torch.bfloat16,
     ).to(cuda)
     model.config.pad_token_id = tokenizer.eos_token_id 
     model = model.eval()

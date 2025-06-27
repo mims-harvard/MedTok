@@ -8,8 +8,6 @@ import torch
 import dgl
 from torch_geometric.loader import DataLoader
 from torch_geometric.data import Data
-#from graphcare_ import GAT, GIN, GraphCare
-#from GraphCare import GraphCare
 import torch.nn.functional as F
 import argparse
 import logging
@@ -81,7 +79,7 @@ def construct_args():
     parser.add_argument('--input_dim', type=int, default=64)
     parser.add_argument('--output_dim', type=int, default=64)
     parser.add_argument('--num_heads', type=int, default=4)
-    parser.add_argument('--embedding_path', type=str, default='../pretrained_model/{pretrained_model_name}/embeddings_all.npy')
+    parser.add_argument('--embedding_path', type=str, default='../MedTok/embeddings_all.npy')
 
     args = parser.parse_args()
     return args

@@ -11,7 +11,6 @@ import torch.nn.functional as F
 
 # Import DGL
 import dgl
-# from dgl.dataloading import ShaDowKHopSampler
 
 # Import PyTorch Lightning
 import pytorch_lightning as pl
@@ -214,9 +213,9 @@ class EHRModel(pl.LightningModule):
         #print(data.timestamp_within_visits.shape)
         src_emb = data.x ##[bz, max_medical_code, output_dim]
         src_emb = self.med_code_emb[src_emb].squeeze()  ##[bz, max_medical_code, 256]
-        print("src_emb", src_emb.shape)
+        #print("src_emb", src_emb.shape)
         src_emb = self.projector(src_emb)  ##[bz, max_medical_code, output_dim]
-        print("src_emb", src_emb.shape)
+        #print("src_emb", src_emb.shape)
         #print("visit_id", data.visit_id.shape)
         cls_emb = self.cls_emb.repeat(src_emb.size(0), 1).unsqueeze(1).to(src_emb.device)  ##[bz, 1, output_dim]
         timestamp_within_visits = data.timestamp_within_visits.gather(1, data.visit_id[:, :, 0].unsqueeze(-1).expand(-1, -1, data.timestamp_within_visits.size(-1)))

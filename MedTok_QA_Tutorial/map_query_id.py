@@ -96,7 +96,7 @@ class AfrimedLoader:
 
 
 def read_medical_code():
-    med_codes_pkg_map_path = '../Dataset/medicalCode/all_codes_mappings_v3.parquet'
+    med_codes_pkg_map_path = '../Dataset/medicalCode/all_codes_mappings.parquet'
     medical_code = pd.read_parquet(med_codes_pkg_map_path)
     medical_code['med_code'] = medical_code['med_code'].apply(lambda x: x.replace('.', ''))
     #print(self.medical_code.head())
