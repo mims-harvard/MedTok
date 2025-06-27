@@ -58,18 +58,18 @@ MedTok can be generalized to medicalQA systems, where the generated tokens are a
 
 To finetune LLMs with datasets we presented in our paper, please run the following command:
 ```bash
-cd MedTok_MedicalQA_Tutorial
+cd MedTok_QA_Tutorial
 WORLD_SIZE=1 CUDA_LAUNCH_BLOCKING=1 CUDA_VISIBLE_DEVICES=0 torchrun --nproc_per_node=1 --master_port 1234 fintune_llama3.py
 ```
 After obtaining the pre-trained model, please do inference directly on other datasets:
 ```bash
-cd MedTok_MedicalQA_Tutorial
+cd MedTok_QA_Tutorial
 WORLD_SIZE=1 CUDA_LAUNCH_BLOCKING=1 CUDA_VISIBLE_DEVICES=0 torchrun --nproc_per_node=1 --master_port 1234 inference.py
 ```
 
 If you want to apply MedTok to your own QA system or datasets, please first extract the diseases contained in each query and obtain their medical code, and then prepare the datasets to be used as training dataset to finetune LLMs.
 ```bash
-cd MedTok_MedicalQA_Tutorial
+cd MedTok_QA_Tutorial
 python extract_disease.py
 python map_query_id.py
 ```
