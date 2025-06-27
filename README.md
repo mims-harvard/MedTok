@@ -33,7 +33,7 @@ sbatch run.sh
 
 We provide two ways to use MedTok. 
 
-One is using this codebase to run inference script to get all tokens and corresponding embeddings. The embeddings are also available at [mims-harvard/MedTok](add_links). 
+One is using this codebase to run inference script to get all tokens and corresponding embeddings. The embeddings are also available at [mims-harvard/MedTok](https://huggingface.co/mims-harvard/MedTok). 
 
 ```bash
 python inference.py
@@ -49,7 +49,7 @@ ids = tokenizer.encode("E11.9")
 embed = tokenizer.embed("E11.9")
 ```
 
-If you want to use the tokenized embedding for each medical code, please download it from [mims-harvard/MedTok](add_links) or [code2embeddings.json.zip](https://doi.org/10.7910/DVN/7XNT3M) directly. And the downloaded embedding file could be put into 'MedTok/embedding.npy' to run EHR or QA tasks based on MedTok.
+If you want to use the tokenized embedding for each medical code, please download it from [mims-harvard/MedTok](https://huggingface.co/mims-harvard/MedTok) or [code2embeddings.json.zip](https://doi.org/10.7910/DVN/7XNT3M) directly. And the downloaded embedding file could be put into 'MedTok/embedding.npy' to run EHR or QA tasks based on MedTok.
 
 ### 🏥MedTok for EHR
 Please first download EHR datasets to 'Dataset/EHR/{EHR_dataset_name}', and then run:
