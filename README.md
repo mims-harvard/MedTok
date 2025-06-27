@@ -25,10 +25,10 @@ conda activate MedTok
 
 ## 💡 How to train MedTok?
 
-After cloning the repository and installing all dependencies. If you want to train MedTok with your customized parameter combinations or your customized encoders. Please execute the command:
+To train MedTok, please first download [raw data](data_link) to xx and then run:
 
 ```bash
-python train.py
+python train_MedTok.py
 ```
 
 ## 🛠️ How to use MedTok?
