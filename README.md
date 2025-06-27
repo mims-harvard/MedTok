@@ -25,21 +25,21 @@ conda activate MedTok
 
 ## 💡 How to train MedTok?
 
-To train MedTok, please first download [raw data](data_link) to 'dataset/' and then run:
+To train MedTok, please first download [raw data](data_link) to 'Dataset/' and then run:
 
 ```bash
 python train_MedTok.py
 ```
 
 ## 🛠️ How to use MedTok?
-MedTok is a medical code tokenizer. When you are trying to use MedTok to tokenize a medical code, please just run the following command:
+
+We provide two ways to use MedTok. One is using this codebase to run inference script to get all tokens, the other is accessing MedTok by [MedTok](add links).
 
 ```bash
 python inference.py
 ```
-By running this python file, you could get all tokens and embeddings generated for all medical codes considered in this paper.
+or
 
-You could also use [MedTok](add links) to access MedTok. Here is the example:
 ```bash
 from transformers import AutoTokenizer
 tokenizer = AutoTokenizer.from_pretrained("MedTok")
