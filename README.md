@@ -39,9 +39,13 @@ python inference.py
 ```
 By running this python file, you could get all tokens and embeddings generated for all medical codes considered in this paper.
 
-You could also use [HuggingFace](add links) to access MedTok. Here is the example:
+You could also use [MedTok](add links) to access MedTok. Here is the example:
 ```bash
-from transformers import AutoModel
+from transformers import AutoTokenizer
+tokenizer = AutoTokenizer.from_pretrained("MedTok")
+tokens = tokenizer.tokenize("E11.9")
+ids = tokenizer.encode("E11.9")
+embed = tokenizer.embed("E11.9")
 ```
 
 
