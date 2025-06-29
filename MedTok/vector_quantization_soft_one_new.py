@@ -166,8 +166,8 @@ class VectorQuantizer(nn.Module):
 
         # compute loss for embedding
         if self.training:
-            vq_loss_text = torch.mean((z_q_text - z_flattened_text.detach()) ** 2) ## new indices should be simialr to the original input
-            commit_loss_text = self.beta * torch.mean((z_q_text.detach() - z_flattened_text) ** 2) ## the original input should be similar to the new indices, detach means stop gradients
+            vq_loss_text = torch.mean((z_flattened_text.detach() - z_q_text) ** 2) ## new indices should be simialr to the original input
+            commit_loss_text = self.beta * torch.mean((z_flattened_text - z_q_text.detach()) ** 2) ## the original input should be similar to the new indices, detach means stop gradients
 
             vq_loss_graph = torch.mean((z_q_graph - z_flattened_graph.detach()) ** 2) ## new indices should be simialr to the original input
             commit_loss_graph = self.beta * torch.mean((z_q_graph.detach() - z_flattened_graph) ** 2) ## the original input should be similar to the new indices, detach means stop gradients
