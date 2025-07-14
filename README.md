@@ -87,8 +87,10 @@ python map_query_id.py
 Please reference the json file in 'Dataset/MedicalQA/xx.json' to prepare your data.
 
 ## 🤗 Try out MedTok
+
 ```
 from transformers import AutoTokenizer
+
 tokenizer = AutoTokenizer.from_pretrained("mims-harvard/MedTok", trust_remote_code=True)
 tokens = tokenizer("E11.9")
 embed = tokenizer.embed("E11.9")
