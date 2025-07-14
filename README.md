@@ -2,8 +2,8 @@
   MedTok: Multimodal Medical Code Tokenizer
 </h1>
 
-[![📄 Paper](https://img.shields.io/badge/arXiv-2502.04397-red.svg?logo=arxiv&logoColor=white)](https://arxiv.org/abs/2502.04397)
-[![🤗 Model on Hugging Face](https://img.shields.io/badge/HuggingFace-MedTok-orange?logo=huggingface&logoColor=white)](https://huggingface.co/mims-harvard/MedTok)
+[![arXiv:2502.04397](https://img.shields.io/badge/arXiv-2502.04397-b31b1b)](https://arxiv.org/abs/2502.04397)
+[![Hugging Face 🤗](https://img.shields.io/badge/HuggingFace-MedTok-yellow)](https://huggingface.co/mims-harvard/MedTok)
 
 
 ## 👀 Overview of MedTok
